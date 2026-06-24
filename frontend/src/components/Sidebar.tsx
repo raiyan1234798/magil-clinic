@@ -6,10 +6,10 @@ import { useState } from "react";
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Pill, FileText,
   Settings, CreditCard, UserCircle, Package,
-  Clock, Wallet, Building2, Bell, ClipboardList, X, ChevronLeft, ChevronRight
+  Clock, Wallet, Building2, Bell, ClipboardList, X, ChevronLeft, ChevronRight, Kanban
 } from "lucide-react";
 import { NotificationPanel } from "@/components/NotificationPanel";
-import { canAccessMenu, getUser, ROLE_LABELS } from "@/lib/auth";
+import { canAccessMenu, canViewRoles, getUser, getUserDisplayLabel } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +32,7 @@ const navGroups: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
+      { icon: Kanban, label: "Tasks", href: "/tasks" },
       { icon: Pill, label: "Pharmacy", href: "/pharmacy" },
       { icon: Package, label: "Inventory", href: "/inventory" },
       { icon: Bell, label: "Reminders", href: "/reminders" },
@@ -178,8 +179,10 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
           <UserCircle className="h-8 w-8 shrink-0 text-muted-foreground" />
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{user?.name || "Test Admin"}</p>
-              <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[role] || role}</p>
+              <p className="truncate text-sm font-medium">{getUserDisplayLabel(user)}</p>
+              {canViewRoles(user) && (
+                <p className="truncate text-xs text-muted-foreground">Super Admin</p>
+              )}
             </div>
           )}
         </div>

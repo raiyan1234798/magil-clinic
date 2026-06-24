@@ -5,11 +5,20 @@ export const ROLE_LABELS: Record<string, string> = {
   FINANCE_MANAGER: "Finance Manager",
 };
 
+/** DOCTOR_ADMIN is the super admin who can view and manage roles. */
+export function isSuperAdmin(user: { role?: string } | null | undefined): boolean {
+  return user?.role === "DOCTOR_ADMIN";
+}
+
+export function canViewRoles(user: { role?: string } | null | undefined): boolean {
+  return isSuperAdmin(user);
+}
+
 export const ROLE_MENU: Record<string, string[]> = {
   DOCTOR_ADMIN: ["*"],
-  NURSE_RECEPTIONIST: ["/", "/patients", "/appointments", "/consultations", "/billing", "/reminders"],
-  PHARMACIST: ["/", "/patients", "/pharmacy", "/inventory"],
-  FINANCE_MANAGER: ["/", "/billing", "/payroll", "/reports", "/employees", "/attendance"],
+  NURSE_RECEPTIONIST: ["/", "/patients", "/appointments", "/consultations", "/billing", "/reminders", "/tasks"],
+  PHARMACIST: ["/", "/patients", "/pharmacy", "/inventory", "/tasks"],
+  FINANCE_MANAGER: ["/", "/billing", "/payroll", "/reports", "/employees", "/attendance", "/tasks"],
 };
 
 export function canAccessMenu(role: string, href: string): boolean {
@@ -45,4 +54,8 @@ export function setAuth(token: string, user: object) {
 export function clearAuth() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+}
+
+export function getUserDisplayLabel(user: { name?: string } | null | undefined): string {
+  return user?.name?.trim() || "User";
 }

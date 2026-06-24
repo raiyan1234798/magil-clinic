@@ -13,18 +13,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch, formatCurrency } from "@/lib/api";
-import { ROLE_LABELS } from "@/lib/auth";
+import { canViewRoles, getUser, isSuperAdmin, ROLE_LABELS } from "@/lib/auth";
 import { toast } from "sonner";
+import { ApiError } from "@/lib/api";
 
 export default function EmployeesPage() {
+  const user = getUser();
+  const showRoles = canViewRoles(user);
+  const superAdmin = isSuperAdmin(user);
   const [employees, setEmployees] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "NURSE_RECEPTIONIST", phone: "", salary: "" });
 
   const load = () => {
-    apiFetch<any[]>("/api/employees").then(setEmployees);
-    apiFetch<any[]>("/api/departments").then(setDepartments);
+    apiFetch<any[]>("/api/employees").then(setEmployees).catch(() => {});
+    apiFetch<any[]>("/api/departments").then(setDepartments).catch(() => {});
   };
   useEffect(() => { load(); }, []);
 
@@ -32,43 +36,49 @@ export default function EmployeesPage() {
     e.preventDefault();
     try {
       await apiFetch("/api/employees", { method: "POST", body: JSON.stringify(form) });
-      toast.success("Employee created with assigned role");
+      toast.success("Employee created — onboarding tasks added to their board");
       setOpen(false);
       load();
-    } catch { toast.error("Failed to create employee"); }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to create employee");
+    }
   };
+
+  const colSpan = showRoles ? 5 : 4;
 
   return (
     <PageLayout
       title="Employees"
-      description="Assign roles: Doctor Admin, Nurse, Pharmacist, Finance Manager."
+      description={showRoles ? "Manage clinic staff and role assignments." : "Clinic staff directory."}
       actions={
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Add Employee</Button>} />
-          <DialogContent>
-            <DialogHeader><DialogTitle>Add Employee with Role</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-              <div className="space-y-2"><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v ?? "NURSE_RECEPTIONIST" })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="DOCTOR_ADMIN">Doctor Admin — Full access</SelectItem>
-                    <SelectItem value="NURSE_RECEPTIONIST">Nurse — Appointments & patients</SelectItem>
-                    <SelectItem value="PHARMACIST">Pharmacist — Pharmacy & inventory</SelectItem>
-                    <SelectItem value="FINANCE_MANAGER">Finance — Billing & payroll</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Salary (₹)</Label><Input type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} /></div>
-              <Button type="submit" className="w-full">Create Employee</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        superAdmin ? (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Add Employee</Button>} />
+            <DialogContent>
+              <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
+                <div className="space-y-2">
+                  <Label>Role</Label>
+                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v ?? "NURSE_RECEPTIONIST" })}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DOCTOR_ADMIN">Doctor Admin — Full access</SelectItem>
+                      <SelectItem value="NURSE_RECEPTIONIST">Nurse — Appointments & patients</SelectItem>
+                      <SelectItem value="PHARMACIST">Pharmacist — Pharmacy & inventory</SelectItem>
+                      <SelectItem value="FINANCE_MANAGER">Finance — Billing & payroll</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Salary (₹)</Label><Input type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} /></div>
+                <Button type="submit" className="w-full">Create Employee</Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : undefined
       }
     >
       <Tabs defaultValue="employees">
@@ -85,7 +95,7 @@ export default function EmployeesPage() {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
+                    {showRoles && <TableHead>Role</TableHead>}
                     <TableHead>Phone</TableHead>
                     <TableHead>Salary</TableHead>
                   </TableRow>
@@ -95,13 +105,15 @@ export default function EmployeesPage() {
                     <TableRow key={emp.id}>
                       <TableCell className="font-medium">{emp.name}</TableCell>
                       <TableCell>{emp.email}</TableCell>
-                      <TableCell><Badge variant="secondary">{ROLE_LABELS[emp.role] || emp.role}</Badge></TableCell>
+                      {showRoles && (
+                        <TableCell><Badge variant="secondary">{ROLE_LABELS[emp.role] || emp.role}</Badge></TableCell>
+                      )}
                       <TableCell>{emp.phone || "—"}</TableCell>
                       <TableCell>{emp.salary ? formatCurrency(emp.salary) : "—"}</TableCell>
                     </TableRow>
                   ))}
                   {employees.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-slate-500">No employees yet. Add staff with roles above.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={colSpan} className="text-center py-8 text-slate-500">No employees yet.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

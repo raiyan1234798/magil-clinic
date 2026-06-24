@@ -7,5 +7,4 @@ cwd = ""
 
 [build.environment]
 NODE_VERSION = "20"
-# Set in Cloudflare Pages dashboard (not localhost):
-# NEXT_PUBLIC_API_URL = "https://magil-clinic-api.onrender.com"
+NEXT_PUBLIC_API_URL = "https://magil-clinic-api.onrender.com"

@@ -65,7 +65,7 @@ export function NotificationPanel() {
             </p>
           </div>
           {error && (
-            <p className="p-4 text-center text-sm text-destructive">{error}</p>
+            <p className="p-4 text-center text-sm text-muted-foreground">Unable to load appointments</p>
           )}
           {!error && data?.doctorSchedules?.length === 0 && (
             <p className="p-4 text-center text-sm text-muted-foreground">No appointments today</p>

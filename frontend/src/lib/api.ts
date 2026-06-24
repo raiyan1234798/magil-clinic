@@ -1,4 +1,19 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+import { getUser } from "./auth";
+import { clearApiError, setApiError } from "./api-status";
+
+const PRODUCTION_API_URL = "https://magil-clinic-api.onrender.com";
+
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined" && !window.location.hostname.includes("localhost")) {
+    return PRODUCTION_API_URL;
+  }
+  return "http://localhost:5001";
+}
+
+export const API_URL = resolveApiUrl();
 
 export class ApiError extends Error {
   isNetworkError: boolean;
@@ -13,9 +28,19 @@ export class ApiError extends Error {
 function networkErrorMessage(): string {
   const isProd = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
   if (isProd) {
-    return `Cannot reach the API at ${API_URL}. Set NEXT_PUBLIC_API_URL in Cloudflare Pages to your deployed backend URL.`;
+    return `Cannot reach the API at ${API_URL}. The backend may be starting up — try again in a minute.`;
   }
   return `Cannot reach the API at ${API_URL}. Start the backend with: cd backend && npm run dev`;
+}
+
+export function taskQueryParams(extra?: Record<string, string>) {
+  const user = getUser();
+  const params = new URLSearchParams({
+    email: user?.email || "",
+    role: user?.role || "",
+    ...extra,
+  });
+  return params.toString();
 }
 
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -31,8 +56,13 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
       },
     });
   } catch {
-    throw new ApiError(networkErrorMessage(), true);
+    const message = networkErrorMessage();
+    setApiError(message);
+    throw new ApiError(message, true);
   }
+
+  clearApiError();
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Request failed" }));
     throw new ApiError(err.error || `Request failed (${res.status})`);
@@ -65,4 +95,11 @@ export const STATUS_COLORS: Record<string, string> = {
   BUSY: "bg-orange-100 text-orange-700",
   PROCESSED: "bg-blue-100 text-blue-700",
   SENT: "bg-green-100 text-green-700",
+  TODO: "bg-slate-100 text-slate-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700",
+  DONE: "bg-green-100 text-green-700",
+  LOW: "bg-slate-100 text-slate-600",
+  MEDIUM: "bg-amber-100 text-amber-700",
+  HIGH: "bg-orange-100 text-orange-700",
+  URGENT: "bg-red-100 text-red-700",
 };

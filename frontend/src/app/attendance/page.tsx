@@ -7,9 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { apiFetch, formatDate, formatTime } from "@/lib/api";
+import { canViewRoles, getUser } from "@/lib/auth";
 import { toast } from "sonner";
 
 export default function AttendancePage() {
+  const showRoles = canViewRoles(getUser());
   const [records, setRecords] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
 
@@ -64,7 +66,7 @@ export default function AttendancePage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Employee</TableHead>
-                <TableHead>Role</TableHead>
+                {showRoles && <TableHead>Role</TableHead>}
                 <TableHead>Check In</TableHead>
                 <TableHead>Check Out</TableHead>
                 <TableHead>Status</TableHead>
@@ -75,7 +77,7 @@ export default function AttendancePage() {
               {records.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.user?.name}</TableCell>
-                  <TableCell>{r.user?.role?.replace(/_/g, " ")}</TableCell>
+                  {showRoles && <TableCell>{r.user?.role?.replace(/_/g, " ")}</TableCell>}
                   <TableCell>{formatTime(r.checkIn)}</TableCell>
                   <TableCell>{r.checkOut ? formatTime(r.checkOut) : "—"}</TableCell>
                   <TableCell><Badge>{r.status}</Badge></TableCell>

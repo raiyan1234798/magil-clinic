@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api";
+import { canViewRoles, getUser } from "@/lib/auth";
 import { toast } from "sonner";
 import {
   Clock, Plug, Zap, Shield, MessageSquare, Mail, FileText, Printer, Calendar,
@@ -116,6 +117,7 @@ function ToggleCard({ label, description, icon: Icon, enabled, onChange }: {
 }
 
 export default function SettingsPage() {
+  const showRoles = canViewRoles(getUser());
   const [form, setForm] = useState<SettingsForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -123,7 +125,11 @@ export default function SettingsPage() {
   useEffect(() => {
     apiFetch<SettingsForm>("/api/settings")
       .then(setForm)
-      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load settings"))
+      .catch((err) => {
+        if (!(err instanceof ApiError && err.isNetworkError)) {
+          toast.error(err instanceof ApiError ? err.message : "Failed to load settings");
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -253,8 +259,9 @@ export default function SettingsPage() {
             </div>
           </PageCard>
 
+          {showRoles && (
           <PageCard className="md:col-span-2">
-            <PageCardHeader title="User Roles" description="Access permissions by role" />
+            <PageCardHeader title="User Roles" description="Access permissions by role (super admin only)" />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
               {[
                 { role: "Doctor Admin", perms: "Full system access", icon: Shield },
@@ -274,6 +281,7 @@ export default function SettingsPage() {
               ))}
             </div>
           </PageCard>
+          )}
         </div>
 
         <div className="flex justify-end">

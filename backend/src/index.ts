@@ -179,6 +179,27 @@ const updateSettings = async (req: express.Request, res: express.Response) => {
 app.put('/api/settings', updateSettings);
 app.patch('/api/settings', updateSettings);
 
+const ONBOARDING_TASKS = [
+  { title: 'Complete profile', description: 'Fill in your employee profile and contact details', priority: 'HIGH' },
+  { title: 'Review clinic policies', description: 'Read and acknowledge clinic policies and procedures', priority: 'MEDIUM' },
+  { title: 'Setup workstation', description: 'Configure your computer, email, and clinic systems access', priority: 'MEDIUM' },
+];
+
+async function createOnboardingTasks(assigneeId: string, assigneeEmail: string, createdById?: string) {
+  await prisma.task.createMany({
+    data: ONBOARDING_TASKS.map((t, i) => ({
+      title: t.title,
+      description: t.description,
+      priority: t.priority,
+      status: 'TODO',
+      assigneeId,
+      assigneeEmail,
+      createdById: createdById || null,
+      sortOrder: i,
+    })),
+  });
+}
+
 app.post('/api/employees', async (req, res) => {
   try {
     const { name, email, password, role, phone, salary, departmentId } = req.body;
@@ -187,6 +208,9 @@ app.post('/api/employees', async (req, res) => {
       data: { name, email, password: hash, role, phone, salary: parseFloat(salary) || 0, departmentId: departmentId || null },
       select: { id: true, name: true, email: true, role: true, phone: true, salary: true, createdAt: true },
     });
+    if (email) {
+      await createOnboardingTasks(user.id, email);
+    }
     res.json(user);
   } catch { res.status(500).json({ error: 'Failed to create employee' }); }
 });
@@ -957,6 +981,113 @@ app.get('/api/reports/:type', async (req, res) => {
       default: return res.status(400).json({ error: 'Invalid report type' });
     }
   } catch { res.status(500).json({ error: 'Failed to generate report' }); }
+});
+
+// ─── TASKS (Kanban) ───────────────────────────────────────────────────────────
+const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'DONE'] as const;
+
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const { email, role, assigneeEmail } = req.query;
+    const isSuperAdmin = role === 'DOCTOR_ADMIN';
+    const where: { OR?: Array<{ assigneeEmail?: string; assigneeId?: string }> } = {};
+
+    if (!isSuperAdmin) {
+      const userEmail = String(email || '');
+      const user = userEmail
+        ? await prisma.user.findUnique({ where: { email: userEmail }, select: { id: true } })
+        : null;
+      where.OR = [
+        ...(userEmail ? [{ assigneeEmail: userEmail }] : []),
+        ...(user ? [{ assigneeId: user.id }] : []),
+      ];
+      if (!where.OR?.length) return res.json([]);
+    } else if (assigneeEmail) {
+      where.OR = [{ assigneeEmail: String(assigneeEmail) }];
+    }
+
+    const tasks = await prisma.task.findMany({
+      where: Object.keys(where).length ? where : undefined,
+      orderBy: [{ status: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    res.json(tasks);
+  } catch { res.status(500).json({ error: 'Failed to fetch tasks' }); }
+});
+
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const { title, description, status, priority, assigneeId, assigneeEmail, createdById, dueDate } = req.body;
+    if (!title?.trim()) return res.status(400).json({ error: 'Title is required' });
+
+    let resolvedAssigneeId = assigneeId || null;
+    let resolvedEmail = assigneeEmail || null;
+    if (resolvedAssigneeId && !resolvedEmail) {
+      const assignee = await prisma.user.findUnique({ where: { id: resolvedAssigneeId }, select: { email: true } });
+      resolvedEmail = assignee?.email || null;
+    }
+
+    const maxOrder = await prisma.task.aggregate({
+      where: { status: status || 'TODO' },
+      _max: { sortOrder: true },
+    });
+
+    const task = await prisma.task.create({
+      data: {
+        title: title.trim(),
+        description: description || null,
+        status: TASK_STATUSES.includes(status) ? status : 'TODO',
+        priority: priority || 'MEDIUM',
+        assigneeId: resolvedAssigneeId,
+        assigneeEmail: resolvedEmail,
+        createdById: createdById || null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+      },
+    });
+    res.json(task);
+  } catch { res.status(500).json({ error: 'Failed to create task' }); }
+});
+
+app.patch('/api/tasks/:id', async (req, res) => {
+  try {
+    const id = routeId(req);
+    const { title, description, status, priority, assigneeId, assigneeEmail, dueDate } = req.body;
+    const data: Record<string, unknown> = {};
+    if (title !== undefined) data.title = title;
+    if (description !== undefined) data.description = description;
+    if (status !== undefined && TASK_STATUSES.includes(status)) data.status = status;
+    if (priority !== undefined) data.priority = priority;
+    if (assigneeId !== undefined) data.assigneeId = assigneeId;
+    if (assigneeEmail !== undefined) data.assigneeEmail = assigneeEmail;
+    if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
+
+    const task = await prisma.task.update({ where: { id }, data });
+    res.json(task);
+  } catch { res.status(500).json({ error: 'Failed to update task' }); }
+});
+
+app.patch('/api/tasks/:id/move', async (req, res) => {
+  try {
+    const id = routeId(req);
+    const { status, sortOrder } = req.body;
+    if (!TASK_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+
+    const task = await prisma.task.update({
+      where: { id },
+      data: {
+        status,
+        sortOrder: typeof sortOrder === 'number' ? sortOrder : 0,
+      },
+    });
+    res.json(task);
+  } catch { res.status(500).json({ error: 'Failed to move task' }); }
+});
+
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    await prisma.task.delete({ where: { id: routeId(req) } });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: 'Failed to delete task' }); }
 });
 
 app.get('/api/health', (_req, res) => {

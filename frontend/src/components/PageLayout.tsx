@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, ChevronRight, Home } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
+import { ApiErrorBanner } from "@/components/ApiErrorBanner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ const ROUTE_LABELS: Record<string, string> = {
   pharmacy: "Pharmacy",
   inventory: "Inventory",
   employees: "Employees",
+  tasks: "Tasks",
   attendance: "Attendance",
   payroll: "Payroll",
   reports: "Reports",
@@ -70,6 +72,7 @@ export function PageLayout({ children, title, description, actions, breadcrumbs 
         </div>
       )}
       <main className="flex min-w-0 flex-1 flex-col">
+        <ApiErrorBanner />
         <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 glass px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">

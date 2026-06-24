@@ -21,6 +21,26 @@ model User {
   department   Department?  @relation(fields: [departmentId], references: [id])
   attendances  Attendance[]
   payrolls     Payroll[]
+  assignedTasks Task[] @relation("AssignedTasks")
+  createdTasks  Task[] @relation("CreatedTasks")
+}
+
+model Task {
+  id            String    @id @default(uuid())
+  title         String
+  description   String?
+  status        String    @default("TODO") // TODO, IN_PROGRESS, DONE
+  priority      String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  assigneeId    String?
+  assigneeEmail String?
+  createdById   String?
+  dueDate       DateTime?
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  assignee  User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  createdBy User? @relation("CreatedTasks", fields: [createdById], references: [id])
 }
 
 model Department {

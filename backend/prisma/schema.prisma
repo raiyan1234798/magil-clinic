@@ -347,10 +347,15 @@ model PatientDocument {
 }
 
 model ClinicSettings {
-  id              String @id @default("default")
-  clinicName      String @default("Magil Clinic")
-  consultStartHour Int   @default(17) // 5 PM
-  consultEndHour   Int   @default(21) // 9 PM
-  slotMinutes     Int    @default(15)
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default("default")
+  clinicName       String   @default("Magil Clinic")
+  primaryColor     String   @default("#0F4C81")
+  secondaryColor   String   @default("#4CAF50")
+  fontFamily       String   @default("Inter")
+  consultStartHour Int      @default(17) // 5 PM
+  consultEndHour   Int      @default(21) // 9 PM
+  slotMinutes      Int      @default(15)
+  integrations     String   @default("{}") // JSON: whatsapp, sms, email, etc.
+  automation       String   @default("{}") // JSON: appointmentReminders, etc.
+  updatedAt        DateTime @updatedAt
 }

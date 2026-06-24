@@ -4,13 +4,68 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from './prisma';
 import { migrateLegacyAppointmentTokens } from './migrate-legacy-data';
-import { getSlotTimes, maxTokensPerDay, formatTime12, sendWhatsAppReminder, canAccess, CONSULT_START_HOUR, CONSULT_END_HOUR, SLOT_MINUTES } from './utils';
+import { getSlotTimes, maxTokensPerDay, formatTime12, sendWhatsAppReminder, DEFAULT_INTEGRATIONS, DEFAULT_AUTOMATION, parseSettingsJson, formatConsultHoursLabel, type ClinicHoursConfig } from './utils';
+
+/** Retry Prisma appointment reads after converting legacy string tokenNumber values. */
+async function withAppointmentMigration<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const migrated = migrateLegacyAppointmentTokens();
+    if (migrated > 0) return await fn();
+    throw e;
+  }
+}
 
 const app = express();
 const port = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'magil-clinic-secret-key';
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:3000,https://magil-clinic.pages.dev').split(',').map((o) => o.trim());
+const routeId = (req: express.Request) => String(req.params.id);
 
-app.use(cors());
+app.use(cors({ origin: CORS_ORIGINS, credentials: true }));
+async function ensureClinicSettings() {
+  let settings = await prisma.clinicSettings.findUnique({ where: { id: 'default' } });
+  if (!settings) {
+    settings = await prisma.clinicSettings.create({
+      data: {
+        id: 'default',
+        clinicName: 'Magil Clinic',
+        consultStartHour: 17,
+        consultEndHour: 21,
+        slotMinutes: 15,
+        integrations: JSON.stringify(DEFAULT_INTEGRATIONS),
+        automation: JSON.stringify(DEFAULT_AUTOMATION),
+      },
+    });
+  }
+  return settings;
+}
+
+function serializeSettings(settings: Awaited<ReturnType<typeof ensureClinicSettings>>) {
+  const hours: ClinicHoursConfig = {
+    consultStartHour: settings.consultStartHour,
+    consultEndHour: settings.consultEndHour,
+    slotMinutes: settings.slotMinutes,
+  };
+  return {
+    ...settings,
+    integrations: parseSettingsJson(settings.integrations, DEFAULT_INTEGRATIONS),
+    automation: parseSettingsJson(settings.automation, DEFAULT_AUTOMATION),
+    consultHoursLabel: formatConsultHoursLabel(settings.consultStartHour, settings.consultEndHour),
+    maxTokens: maxTokensPerDay(hours),
+  };
+}
+
+async function getClinicHoursConfig(): Promise<ClinicHoursConfig> {
+  const settings = await ensureClinicSettings();
+  return {
+    consultStartHour: settings.consultStartHour,
+    consultEndHour: settings.consultEndHour,
+    slotMinutes: settings.slotMinutes,
+  };
+}
+
 app.use(express.json({ limit: '10mb' }));
 
 const authMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -53,7 +108,15 @@ app.post('/api/setup', async (req, res) => {
     const password = await bcrypt.hash(adminPassword, 10);
     const dept = await prisma.department.create({ data: { name: 'Administration', description: 'Clinic administration' } });
     await prisma.clinicSettings.create({
-      data: { id: 'default', clinicName: clinicName || 'Magil Clinic', consultStartHour: 17, consultEndHour: 21, slotMinutes: 15 },
+      data: {
+        id: 'default',
+        clinicName: clinicName || 'Magil Clinic',
+        consultStartHour: 17,
+        consultEndHour: 21,
+        slotMinutes: 15,
+        integrations: JSON.stringify(DEFAULT_INTEGRATIONS),
+        automation: JSON.stringify(DEFAULT_AUTOMATION),
+      },
     });
     const user = await prisma.user.create({
       data: { email: adminEmail, password, name: adminName, role: 'DOCTOR_ADMIN', departmentId: dept.id, salary: 0 },
@@ -65,19 +128,56 @@ app.post('/api/setup', async (req, res) => {
 
 app.get('/api/settings', async (_req, res) => {
   try {
-    let settings = await prisma.clinicSettings.findUnique({ where: { id: 'default' } });
-    if (!settings) {
-      settings = await prisma.clinicSettings.create({
-        data: { id: 'default', clinicName: 'Magil Clinic', consultStartHour: 17, consultEndHour: 21, slotMinutes: 15 },
-      });
-    }
-    res.json({
-      ...settings,
-      consultHoursLabel: `${CONSULT_START_HOUR > 12 ? CONSULT_START_HOUR - 12 : CONSULT_START_HOUR}:00 PM – ${CONSULT_END_HOUR > 12 ? CONSULT_END_HOUR - 12 : CONSULT_END_HOUR}:00 PM`,
-      maxTokens: maxTokensPerDay(),
-    });
+    const settings = await ensureClinicSettings();
+    res.json(serializeSettings(settings));
   } catch { res.status(500).json({ error: 'Failed to fetch settings' }); }
 });
+
+const updateSettings = async (req: express.Request, res: express.Response) => {
+  try {
+    const {
+      clinicName,
+      primaryColor,
+      secondaryColor,
+      fontFamily,
+      consultStartHour,
+      consultEndHour,
+      slotMinutes,
+      integrations,
+      automation,
+    } = req.body;
+
+    const existing = await ensureClinicSettings();
+    const start = consultStartHour !== undefined ? parseInt(consultStartHour) : existing.consultStartHour;
+    const end = consultEndHour !== undefined ? parseInt(consultEndHour) : existing.consultEndHour;
+    const slots = slotMinutes !== undefined ? parseInt(slotMinutes) : existing.slotMinutes;
+
+    if (start >= end) return res.status(400).json({ error: 'Consult start hour must be before end hour' });
+    if (slots < 5 || slots > 60) return res.status(400).json({ error: 'Slot minutes must be between 5 and 60' });
+
+    const settings = await prisma.clinicSettings.update({
+      where: { id: 'default' },
+      data: {
+        clinicName: clinicName ?? existing.clinicName,
+        primaryColor: primaryColor ?? existing.primaryColor,
+        secondaryColor: secondaryColor ?? existing.secondaryColor,
+        fontFamily: fontFamily ?? existing.fontFamily,
+        consultStartHour: start,
+        consultEndHour: end,
+        slotMinutes: slots,
+        integrations: integrations ? JSON.stringify(integrations) : existing.integrations,
+        automation: automation ? JSON.stringify(automation) : existing.automation,
+      },
+    });
+    res.json(serializeSettings(settings));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to update settings' });
+  }
+};
+
+app.put('/api/settings', updateSettings);
+app.patch('/api/settings', updateSettings);
 
 app.post('/api/employees', async (req, res) => {
   try {
@@ -139,7 +239,7 @@ app.get('/api/patients', async (req, res) => {
 app.get('/api/patients/:id', async (req, res) => {
   try {
     const patient = await prisma.patient.findUnique({
-      where: { id: req.params.id },
+      where: { id: routeId(req) },
       include: {
         appointments: { include: { doctor: true }, orderBy: { appointmentDate: 'desc' } },
         consultations: { include: { doctor: true, prescription: { include: { items: { include: { medicine: true } } } } }, orderBy: { createdAt: 'desc' } },
@@ -208,7 +308,7 @@ app.get('/api/patients/:id', async (req, res) => {
       ...patient,
       stats: { totalBilled, totalPaid, visitCount, lastVisit, medicationCount: medications.length, billCount: patient.bills.length },
       medications,
-      pharmacySales: await prisma.pharmacySale.findMany({ where: { patientId: req.params.id }, include: { medicine: true }, orderBy: { createdAt: 'desc' } }),
+      pharmacySales: await prisma.pharmacySale.findMany({ where: { patientId: routeId(req) }, include: { medicine: true }, orderBy: { createdAt: 'desc' } }),
       timeline,
     });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch patient' }); }
@@ -226,16 +326,19 @@ app.post('/api/patients', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to create patient' }); }
 });
 
-app.put('/api/patients/:id', async (req, res) => {
+const updatePatient = async (req: express.Request, res: express.Response) => {
   try {
     const { fullName, gender, age, dob, phone, email, bloodGroup, emergencyContact, address, medicalNotes } = req.body;
     const patient = await prisma.patient.update({
-      where: { id: req.params.id },
+      where: { id: routeId(req) },
       data: { name: fullName, gender, age: parseInt(age), dateOfBirth: dob ? new Date(dob) : null, phoneNumber: phone, email, bloodGroup, emergencyContact, address, medicalNotes },
     });
     res.json(patient);
   } catch { res.status(500).json({ error: 'Failed to update patient' }); }
-});
+};
+
+app.put('/api/patients/:id', updatePatient);
+app.patch('/api/patients/:id', updatePatient);
 
 app.post('/api/patients/:id/documents', async (req, res) => {
   try {
@@ -248,7 +351,7 @@ app.post('/api/patients/:id/documents', async (req, res) => {
       if (isR2Configured()) {
         const parsed = parseBase64File(fileData);
         if (parsed) {
-          const key = `patients/${req.params.id}/${Date.now()}-${(name || 'document').replace(/\s+/g, '-')}`;
+          const key = `patients/${routeId(req)}/${Date.now()}-${(name || 'document').replace(/\s+/g, '-')}`;
           const r2Url = await uploadToR2(key, parsed.buffer, mimeType || parsed.mimeType);
           if (r2Url) {
             url = r2Url;
@@ -260,7 +363,7 @@ app.post('/api/patients/:id/documents', async (req, res) => {
 
     const doc = await prisma.patientDocument.create({
       data: {
-        patientId: req.params.id,
+        patientId: routeId(req),
         name,
         type: type || 'OTHER',
         url,
@@ -294,7 +397,7 @@ app.post('/api/doctors', async (req, res) => {
 
 app.put('/api/doctors/:id', async (req, res) => {
   try {
-    const doctor = await prisma.doctor.update({ where: { id: req.params.id }, data: req.body });
+    const doctor = await prisma.doctor.update({ where: { id: routeId(req) }, data: req.body });
     res.json(doctor);
   } catch { res.status(500).json({ error: 'Failed to update doctor' }); }
 });
@@ -302,8 +405,8 @@ app.put('/api/doctors/:id', async (req, res) => {
 app.post('/api/doctors/:id/leave', async (req, res) => {
   try {
     const { startDate, endDate, reason } = req.body;
-    const leave = await prisma.doctorLeave.create({ data: { doctorId: req.params.id, startDate: new Date(startDate), endDate: new Date(endDate), reason } });
-    await prisma.doctor.update({ where: { id: req.params.id }, data: { availability: 'ON_LEAVE' } });
+    const leave = await prisma.doctorLeave.create({ data: { doctorId: routeId(req), startDate: new Date(startDate), endDate: new Date(endDate), reason } });
+    await prisma.doctor.update({ where: { id: routeId(req) }, data: { availability: 'ON_LEAVE' } });
     res.json(leave);
   } catch { res.status(500).json({ error: 'Failed to add leave' }); }
 });
@@ -324,45 +427,51 @@ function formatApptDateTime(date: Date) {
 app.get('/api/appointments/today', async (_req, res) => {
   try {
     const { today, tomorrow } = getTodayRange();
-    const appointments = await prisma.appointment.findMany({
-      where: { appointmentDate: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } },
-      include: { patient: true, doctor: true },
-      orderBy: { appointmentDate: 'asc' },
-    });
+    const appointments = await withAppointmentMigration(() =>
+      prisma.appointment.findMany({
+        where: { appointmentDate: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } },
+        include: { patient: true, doctor: true },
+        orderBy: { appointmentDate: 'asc' },
+      })
+    );
     res.json(appointments);
-  } catch { res.status(500).json({ error: 'Failed to fetch today appointments' }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch today appointments' }); }
 });
 
 app.get('/api/doctors/:id/appointments', async (req, res) => {
   try {
     const { today, tomorrow } = getTodayRange();
-    const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id } });
+    const doctor = await prisma.doctor.findUnique({ where: { id: routeId(req) } });
     if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
-    const appointments = await prisma.appointment.findMany({
-      where: { doctorId: req.params.id, appointmentDate: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } },
-      include: { patient: true },
-      orderBy: { appointmentDate: 'asc' },
-    });
+    const appointments = await withAppointmentMigration(() =>
+      prisma.appointment.findMany({
+        where: { doctorId: routeId(req), appointmentDate: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } },
+        include: { patient: true },
+        orderBy: { appointmentDate: 'asc' },
+      })
+    );
     res.json({ doctor, appointments, count: appointments.length });
-  } catch { res.status(500).json({ error: 'Failed to fetch doctor appointments' }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch doctor appointments' }); }
 });
 
 app.get('/api/notifications', async (_req, res) => {
   try {
     const { today, tomorrow } = getTodayRange();
-    const [appointments, doctors, reminders] = await Promise.all([
-      prisma.appointment.findMany({
-        where: { appointmentDate: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } },
-        include: { patient: true, doctor: true },
-        orderBy: { appointmentDate: 'asc' },
-      }),
-      prisma.doctor.findMany({ orderBy: { name: 'asc' } }),
-      prisma.reminder.findMany({
-        where: { type: { in: ['APPOINTMENT', 'APPOINTMENT_DOCTOR'] }, sendAt: { gte: today, lt: tomorrow } },
-        include: { patient: true },
-        orderBy: { sendAt: 'asc' },
-      }),
-    ]);
+    const [appointments, doctors, reminders] = await withAppointmentMigration(() =>
+      Promise.all([
+        prisma.appointment.findMany({
+          where: { appointmentDate: { gte: today, lt: tomorrow }, status: { not: 'CANCELLED' } },
+          include: { patient: true, doctor: true },
+          orderBy: { appointmentDate: 'asc' },
+        }),
+        prisma.doctor.findMany({ orderBy: { name: 'asc' } }),
+        prisma.reminder.findMany({
+          where: { type: { in: ['APPOINTMENT', 'APPOINTMENT_DOCTOR'] }, sendAt: { gte: today, lt: tomorrow } },
+          include: { patient: true },
+          orderBy: { sendAt: 'asc' },
+        }),
+      ])
+    );
 
     const doctorSchedules = doctors.map((doc) => ({
       doctor: { id: doc.id, name: doc.name, specialization: doc.specialization, availability: doc.availability },
@@ -408,11 +517,13 @@ app.get('/api/appointments', async (req, res) => {
       where.appointmentDate = { gte: d, lt: next };
     }
     if (status) where.status = String(status);
-    const appointments = await prisma.appointment.findMany({
-      where, include: { patient: true, doctor: true }, orderBy: { appointmentDate: 'asc' },
-    });
+    const appointments = await withAppointmentMigration(() =>
+      prisma.appointment.findMany({
+        where, include: { patient: true, doctor: true }, orderBy: { appointmentDate: 'asc' },
+      })
+    );
     res.json(appointments);
-  } catch { res.status(500).json({ error: 'Failed to fetch appointments' }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch appointments' }); }
 });
 
 app.post('/api/appointments', async (req, res) => {
@@ -427,12 +538,14 @@ app.post('/api/appointments', async (req, res) => {
     const existingCount = await prisma.appointment.count({
       where: { appointmentDate: { gte: aptDay, lt: nextDay }, doctorId, status: { not: 'CANCELLED' } },
     });
+    const hours = await getClinicHoursConfig();
     const tokenNum = existingCount + 1;
-    if (tokenNum > maxTokensPerDay()) {
-      return res.status(400).json({ error: `No slots available. Consulting hours are 5 PM–9 PM (${maxTokensPerDay()} tokens max).` });
+    const maxTokens = maxTokensPerDay(hours);
+    if (tokenNum > maxTokens) {
+      return res.status(400).json({ error: `No slots available. Consulting hours are ${formatConsultHoursLabel(hours.consultStartHour, hours.consultEndHour)} (${maxTokens} tokens max).` });
     }
 
-    const slot = getSlotTimes(tokenNum, aptDay);
+    const slot = getSlotTimes(tokenNum, aptDay, hours);
     if (!slot) return res.status(400).json({ error: 'Invalid token slot' });
 
     const appointment = await prisma.appointment.create({
@@ -470,7 +583,7 @@ app.post('/api/appointments', async (req, res) => {
 app.post('/api/appointments/:id/start', async (req, res) => {
   try {
     const apt = await prisma.appointment.update({
-      where: { id: req.params.id },
+      where: { id: routeId(req) },
       data: { status: 'IN_PROGRESS', actualStartTime: new Date() },
       include: { patient: true, doctor: true },
     });
@@ -481,7 +594,7 @@ app.post('/api/appointments/:id/start', async (req, res) => {
 app.post('/api/appointments/:id/complete', async (req, res) => {
   try {
     const apt = await prisma.appointment.update({
-      where: { id: req.params.id },
+      where: { id: routeId(req) },
       data: { status: 'COMPLETED', actualEndTime: new Date() },
       include: { patient: true, doctor: true },
     });
@@ -493,7 +606,7 @@ app.put('/api/appointments/:id', async (req, res) => {
   try {
     const { status, appointmentDate, doctorId, reason } = req.body;
     const appointment = await prisma.appointment.update({
-      where: { id: req.params.id },
+      where: { id: routeId(req) },
       data: { status, appointmentDate: appointmentDate ? new Date(appointmentDate) : undefined, doctorId, reason },
       include: { patient: true, doctor: true },
     });
@@ -504,12 +617,14 @@ app.put('/api/appointments/:id', async (req, res) => {
 // ─── CONSULTATIONS ────────────────────────────────────────────────────────────
 app.get('/api/consultations', async (_req, res) => {
   try {
-    const consultations = await prisma.consultation.findMany({
-      include: { patient: true, doctor: true, appointment: true, prescription: { include: { items: { include: { medicine: true } } } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    const consultations = await withAppointmentMigration(() =>
+      prisma.consultation.findMany({
+        include: { patient: true, doctor: true, appointment: true, prescription: { include: { items: { include: { medicine: true } } } } },
+        orderBy: { createdAt: 'desc' },
+      })
+    );
     res.json(consultations);
-  } catch { res.status(500).json({ error: 'Failed to fetch consultations' }); }
+  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch consultations' }); }
 });
 
 app.post('/api/consultations', async (req, res) => {
@@ -526,12 +641,12 @@ app.post('/api/consultations', async (req, res) => {
 
 app.post('/api/consultations/:id/prescription', async (req, res) => {
   try {
-    const consultation = await prisma.consultation.findUnique({ where: { id: req.params.id } });
+    const consultation = await prisma.consultation.findUnique({ where: { id: routeId(req) } });
     if (!consultation) return res.status(404).json({ error: 'Consultation not found' });
     const { items, notes } = req.body;
     const prescription = await prisma.prescription.create({
       data: {
-        consultationId: req.params.id, patientId: consultation.patientId, notes,
+        consultationId: routeId(req), patientId: consultation.patientId, notes,
         items: { create: items.map((i: any) => ({ medicineId: i.medicineId, dosage: i.dosage, duration: i.duration, quantity: parseInt(i.quantity) })) },
       },
       include: { items: { include: { medicine: true } } },
@@ -564,12 +679,12 @@ app.post('/api/medicines', async (req, res) => {
 app.post('/api/medicines/:id/stock', async (req, res) => {
   try {
     const { type, quantity, notes } = req.body;
-    const medicine = await prisma.medicine.findUnique({ where: { id: req.params.id } });
+    const medicine = await prisma.medicine.findUnique({ where: { id: routeId(req) } });
     if (!medicine) return res.status(404).json({ error: 'Medicine not found' });
     const qty = parseInt(quantity);
     const newStock = type === 'STOCK_IN' ? medicine.stock + qty : medicine.stock - qty;
-    await prisma.medicine.update({ where: { id: req.params.id }, data: { stock: Math.max(0, newStock) } });
-    const movement = await prisma.stockMovement.create({ data: { medicineId: req.params.id, type, quantity: qty, notes } });
+    await prisma.medicine.update({ where: { id: routeId(req) }, data: { stock: Math.max(0, newStock) } });
+    const movement = await prisma.stockMovement.create({ data: { medicineId: routeId(req), type, quantity: qty, notes } });
     res.json(movement);
   } catch { res.status(500).json({ error: 'Failed to update stock' }); }
 });
@@ -647,7 +762,7 @@ app.get('/api/bills', async (_req, res) => {
 app.get('/api/bills/:id', async (req, res) => {
   try {
     const bill = await prisma.bill.findUnique({
-      where: { id: req.params.id },
+      where: { id: routeId(req) },
       include: { patient: true, items: { include: { medicine: true } } },
     });
     if (!bill) return res.status(404).json({ error: 'Bill not found' });
@@ -757,7 +872,7 @@ app.post('/api/attendance/checkin', async (req, res) => {
 
 app.post('/api/attendance/:id/checkout', async (req, res) => {
   try {
-    const record = await prisma.attendance.update({ where: { id: req.params.id }, data: { checkOut: new Date() }, include: { user: { select: { name: true } } } });
+    const record = await prisma.attendance.update({ where: { id: routeId(req) }, data: { checkOut: new Date() }, include: { user: { select: { name: true } } } });
     res.json(record);
   } catch { res.status(500).json({ error: 'Failed to check out' }); }
 });
@@ -804,7 +919,7 @@ app.post('/api/followups', async (req, res) => {
 
 app.put('/api/followups/:id', async (req, res) => {
   try {
-    const followUp = await prisma.followUp.update({ where: { id: req.params.id }, data: req.body, include: { patient: true } });
+    const followUp = await prisma.followUp.update({ where: { id: routeId(req) }, data: req.body, include: { patient: true } });
     res.json(followUp);
   } catch { res.status(500).json({ error: 'Failed to update follow-up' }); }
 });
@@ -842,6 +957,10 @@ app.get('/api/reports/:type', async (req, res) => {
       default: return res.status(400).json({ error: 'Invalid report type' });
     }
   } catch { res.status(500).json({ error: 'Failed to generate report' }); }
+});
+
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, service: 'magil-clinic-api' });
 });
 
 migrateLegacyAppointmentTokens();

@@ -1,29 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Bell, Calendar, User } from "lucide-react";
-import { apiFetch, formatTime } from "@/lib/api";
+import { apiFetch, formatTime, ApiError } from "@/lib/api";
+
+const POLL_INTERVAL_MS = 60000;
+const ERROR_RETRY_MS = 300000;
 
 export function NotificationPanel() {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const retryAfterRef = useRef(0);
 
-  const loadNotifications = () =>
+  const loadNotifications = () => {
+    if (Date.now() < retryAfterRef.current) return;
     apiFetch("/api/notifications")
       .then((res) => {
         setData(res);
         setError(null);
+        retryAfterRef.current = 0;
       })
       .catch((err) => {
-        console.error(err);
-        setError("Unable to load appointments");
+        const message = err instanceof ApiError && err.isNetworkError
+          ? "API unreachable — set NEXT_PUBLIC_API_URL"
+          : "Unable to load appointments";
+        setError(message);
+        retryAfterRef.current = Date.now() + ERROR_RETRY_MS;
       });
+  };
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 60000);
+    const interval = setInterval(loadNotifications, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, []);
 

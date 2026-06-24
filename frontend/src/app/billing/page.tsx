@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { InvoiceView } from "@/components/InvoiceView";
 import { Plus, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch, formatDate, formatCurrency, STATUS_COLORS } from "@/lib/api";
+import { apiFetch, formatDate, formatCurrency, STATUS_COLORS, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function BillingPage() {
@@ -28,13 +28,15 @@ export default function BillingPage() {
     setLoading(true);
     apiFetch<any[]>("/api/bills")
       .then(setBills)
-      .catch(() => toast.error("Failed to load bills"))
+      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load bills"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     load();
-    apiFetch<any[]>("/api/patients").then(setPatients).catch(() => toast.error("Failed to load patients"));
+    apiFetch<any[]>("/api/patients")
+      .then(setPatients)
+      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load patients"));
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {

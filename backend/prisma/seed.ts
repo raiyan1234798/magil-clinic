@@ -172,6 +172,23 @@ async function main() {
     ],
   });
 
+  await prisma.clinicSettings.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      clinicName: 'Magil Clinic',
+      primaryColor: '#0F4C81',
+      secondaryColor: '#4CAF50',
+      fontFamily: 'Inter',
+      consultStartHour: 17,
+      consultEndHour: 21,
+      slotMinutes: 15,
+      integrations: JSON.stringify({ whatsapp: true, sms: true, email: true, pdfReports: true, printer: true, googleCalendar: false }),
+      automation: JSON.stringify({ appointmentReminders: true, followUpReminders: true, medicineReminders: true, invoiceGeneration: true, stockAlerts: true, attendanceTracking: true, payrollProcessing: true }),
+    },
+  });
+
   console.log('Seed completed successfully!');
   console.log('Login: admin@magilclinic.com / admin123');
 }

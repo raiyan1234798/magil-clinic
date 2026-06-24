@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, MessageSquare, Mail, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch, formatDate, STATUS_COLORS } from "@/lib/api";
+import { apiFetch, formatDate, STATUS_COLORS, ApiError } from "@/lib/api";
 import { toast } from "sonner";
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
@@ -25,16 +25,22 @@ export default function RemindersPage() {
   const [reminders, setReminders] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any>(null);
   const [patients, setPatients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ patientId: "", type: "APPOINTMENT", channel: "SMS", message: "", sendAt: "" });
 
   const load = () => {
-    apiFetch<any[]>("/api/reminders").then(setReminders).catch(console.error);
-    apiFetch("/api/notifications").then(setNotifications).catch(console.error);
+    setLoading(true);
+    Promise.all([
+      apiFetch<any[]>("/api/reminders").then(setReminders),
+      apiFetch("/api/notifications").then(setNotifications),
+    ])
+      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load reminders"))
+      .finally(() => setLoading(false));
   };
   useEffect(() => {
     load();
-    apiFetch<any[]>("/api/patients").then(setPatients);
+    apiFetch<any[]>("/api/patients").then(setPatients).catch(() => {});
   }, []);
 
   const appointmentReminders = reminders.filter((r) => r.type === "APPOINTMENT" || r.type === "APPOINTMENT_DOCTOR");
@@ -139,7 +145,12 @@ export default function RemindersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reminders.map((r) => (
+              {loading ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">Loading reminders…</TableCell></TableRow>
+              ) : reminders.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">No reminders yet. Create one above or book an appointment to auto-schedule.</TableCell></TableRow>
+              ) : (
+              reminders.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">
                     {r.patient?.name || (r.type === "APPOINTMENT_DOCTOR" ? "Doctor Alert" : "—")}
@@ -155,7 +166,8 @@ export default function RemindersPage() {
                   <TableCell>{formatDate(r.sendAt)}</TableCell>
                   <TableCell><Badge className={STATUS_COLORS[r.status] || ""}>{r.status}</Badge></TableCell>
                 </TableRow>
-              ))}
+              ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

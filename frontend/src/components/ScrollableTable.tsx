@@ -7,7 +7,7 @@ interface ScrollableTableProps {
 
 export function ScrollableTable({ children, className }: ScrollableTableProps) {
   return (
-    <div className={cn("w-full overflow-x-auto -mx-1 px-1", className)}>
+    <div className={cn("w-full overflow-x-auto overscroll-x-contain", className)}>
       {children}
     </div>
   );

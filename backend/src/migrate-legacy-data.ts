@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
-import path from 'path';
 import { getSlotTimes } from './utils';
+import { dbPath as defaultDbPath } from './prisma';
 
 /** Legacy seed used string tokens (T-101, W-201); schema expects Int. */
 export function parseLegacyTokenNumber(value: unknown): number | null {
@@ -33,7 +33,7 @@ type LegacyRow = {
   scheduledSlotStart: string | null;
 };
 
-export function migrateLegacyAppointmentTokens(dbPath = path.join(__dirname, '..', 'dev.db')): number {
+export function migrateLegacyAppointmentTokens(dbPath = defaultDbPath): number {
   const db = new Database(dbPath);
   try {
     const rows = db

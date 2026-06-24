@@ -24,6 +24,7 @@ backend/prisma/*.db-journal
 # IDE
 .idea/
 .vscode/
+.wrangler/
 
 # TypeScript
 *.tsbuildinfo

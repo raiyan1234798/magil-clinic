@@ -58,12 +58,40 @@ npx wrangler pages deploy out --project-name=magil-clinic
 
 > **Note:** Dynamic patient pages are pre-rendered at build time via `generateStaticParams`. Rebuild after adding patients for production URLs, or host the API and set `NEXT_PUBLIC_API_URL` during CI build.
 
-### Backend
+### Backend → Render (recommended)
 
-Express + SQLite **does not run on Cloudflare Pages**. Options:
+1. Push this repo to GitHub.
+2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint** → connect `magil-clinic` repo.
+3. Render reads `render.yaml` and deploys `magil-clinic-api` (free tier).
+4. Note the service URL, e.g. `https://magil-clinic-api.onrender.com`.
+5. Verify: `curl https://magil-clinic-api.onrender.com/api/health`
 
-1. **Recommended:** Deploy backend to Railway, Fly.io, Render, or a VPS. Point `NEXT_PUBLIC_API_URL` to it.
-2. **Future:** Migrate API to Cloudflare Workers + D1 using `wrangler.toml` bindings.
+### Frontend → Cloudflare Pages
+
+The frontend uses **static export** (`output: "export"`). Build and deploy:
+
+```bash
+cd frontend
+NEXT_PUBLIC_API_URL=https://magil-clinic-api.onrender.com npm run build
+npx wrangler pages deploy out --project-name=magil-clinic
+```
+
+**Cloudflare Pages dashboard** (required for production):
+- Build command: `cd frontend && npm ci && npm run build`
+- Build output directory: `frontend/out`
+- Environment variable: `NEXT_PUBLIC_API_URL=https://magil-clinic-api.onrender.com` (your Render URL)
+
+> **Important:** `NEXT_PUBLIC_API_URL` is embedded at build time. Set it in CF Pages env vars and trigger a redeploy after deploying the backend.
+
+> **Note:** Dynamic patient pages are pre-rendered at build time via `generateStaticParams`. Rebuild after adding patients for production URLs.
+
+### Backend (other hosts)
+
+Express + SQLite **does not run on Cloudflare Pages**. Alternatives:
+
+1. **Render** (see above) — uses `render.yaml`
+2. **Railway / Fly.io / VPS** — run `cd backend && npm install && npm run db:setup && npm start`
+3. **Future:** Migrate API to Cloudflare Workers + D1 using `wrangler.toml` bindings.
 
 ### R2 Document Storage
 

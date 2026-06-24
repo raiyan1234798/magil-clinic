@@ -3,6 +3,7 @@
 
 name = "magil-clinic"
 compatibility_date = "2024-12-01"
+pages_build_output_dir = "frontend/out"
 
 # ─── D1 Database (production SQLite replacement) ───────────────────────────────
 # Create: wrangler d1 create magil-clinic-db

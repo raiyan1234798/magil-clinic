@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Build outputs
+frontend/.next/
+frontend/out/
+backend/dist/
+
+# Database (local dev)
+backend/dev.db
+backend/dev.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# Logs & OS
+*.log
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# TypeScript
+*.tsbuildinfo
+
+# Prisma generated (if any)
+backend/generated/

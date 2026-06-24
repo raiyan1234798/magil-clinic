@@ -1,0 +1,356 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         String // DOCTOR_ADMIN, NURSE_RECEPTIONIST, PHARMACIST, FINANCE_MANAGER
+  phone        String?
+  departmentId String?
+  salary       Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department   Department?  @relation(fields: [departmentId], references: [id])
+  attendances  Attendance[]
+  payrolls     Payroll[]
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employees User[]
+}
+
+model Patient {
+  id               String    @id @default(uuid())
+  patientId        String    @unique
+  name             String
+  gender           String
+  age              Int
+  dateOfBirth      DateTime?
+  phoneNumber      String
+  email            String?
+  address          String?
+  bloodGroup       String?
+  emergencyContact String?
+  medicalNotes     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  appointments  Appointment[]
+  consultations Consultation[]
+  bills         Bill[]
+  prescriptions Prescription[]
+  documents     PatientDocument[]
+  followUps     FollowUp[]
+  reminders     Reminder[]
+  pharmacySales PharmacySale[]
+}
+
+model Doctor {
+  id              String   @id @default(uuid())
+  doctorId        String   @unique
+  name            String
+  specialization  String
+  phone           String?
+  email           String?
+  consultationFee Float    @default(500)
+  availability    String   @default("AVAILABLE") // AVAILABLE, ON_LEAVE, BUSY
+  schedule        String? // JSON string for weekly schedule
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  appointments  Appointment[]
+  consultations Consultation[]
+  leaves        DoctorLeave[]
+}
+
+model DoctorLeave {
+  id        String   @id @default(uuid())
+  doctorId  String
+  startDate DateTime
+  endDate   DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+}
+
+model Appointment {
+  id                String    @id @default(uuid())
+  patientId         String
+  doctorId          String?
+  appointmentDate   DateTime
+  appointmentType   String    @default("PHONE") // WALK_IN, PHONE
+  status            String    @default("SCHEDULED") // SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED
+  reason            String?
+  tokenNumber       Int?
+  tokenLabel        String?   // e.g. "Token 1"
+  scheduledSlotStart DateTime?
+  scheduledSlotEnd   DateTime?
+  actualStartTime   DateTime?
+  actualEndTime     DateTime?
+  bookedById        String?
+  isWalkIn          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  doctor        Doctor?        @relation(fields: [doctorId], references: [id])
+  consultation  Consultation?
+}
+
+model Consultation {
+  id            String   @id @default(uuid())
+  patientId     String
+  doctorId      String
+  appointmentId String?  @unique
+  diagnosis     String?
+  treatment     String?
+  notes         String?
+  followUpDate  DateTime?
+  fee           Float?
+  status        String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  doctor        Doctor         @relation(fields: [doctorId], references: [id])
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id])
+  prescription  Prescription?
+}
+
+model Prescription {
+  id             String   @id @default(uuid())
+  consultationId String   @unique
+  patientId      String
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  consultation Consultation       @relation(fields: [consultationId], references: [id])
+  patient      Patient            @relation(fields: [patientId], references: [id])
+  items        PrescriptionItem[]
+  pharmacySales PharmacySale[]
+}
+
+model PrescriptionItem {
+  id             String @id @default(uuid())
+  prescriptionId String
+  medicineId     String
+  dosage         String
+  duration       String
+  quantity       Int
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  medicine     Medicine     @relation(fields: [medicineId], references: [id])
+}
+
+model Medicine {
+  id           String   @id @default(uuid())
+  medicineId   String   @unique
+  name         String
+  category     String?
+  manufacturer String?
+  unit         String   @default("strip")
+  price        Float
+  stock        Int      @default(0)
+  minStock     Int      @default(10)
+  expiryDate   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  prescriptionItems PrescriptionItem[]
+  stockMovements    StockMovement[]
+  billItems         BillItem[]
+  pharmacySales     PharmacySale[]
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases Purchase[]
+}
+
+model StockMovement {
+  id         String   @id @default(uuid())
+  medicineId String
+  type       String // STOCK_IN, STOCK_OUT, DISPENSED
+  quantity   Int
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicineId], references: [id])
+}
+
+model Purchase {
+  id         String   @id @default(uuid())
+  supplierId String
+  medicineId String?
+  quantity   Int
+  totalCost  Float
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+}
+
+model Bill {
+  id            String   @id @default(uuid())
+  billNumber    String   @unique
+  patientId     String?
+  type          String // CONSULTATION, PHARMACY, SERVICE
+  subtotal      Float
+  gstAmount     Float    @default(0)
+  total         Float
+  paidAmount    Float    @default(0)
+  paymentStatus String   @default("PENDING") // PENDING, PARTIAL, PAID
+  paymentMethod String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient Patient?   @relation(fields: [patientId], references: [id])
+  items   BillItem[]
+}
+
+model BillItem {
+  id          String @id @default(uuid())
+  billId      String
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Float
+  total       Float
+  medicineId  String?
+
+  bill     Bill      @relation(fields: [billId], references: [id])
+  medicine Medicine? @relation(fields: [medicineId], references: [id])
+}
+
+model PharmacySale {
+  id             String   @id @default(uuid())
+  patientId      String?
+  prescriptionId String?
+  medicineId     String
+  quantity       Int
+  total          Float
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+  prescription Prescription? @relation(fields: [prescriptionId], references: [id])
+  medicine     Medicine      @relation(fields: [medicineId], references: [id])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  category    String
+  description String
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Income {
+  id          String   @id @default(uuid())
+  source      String
+  description String?
+  amount      Float
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model Attendance {
+  id        String    @id @default(uuid())
+  userId    String
+  checkIn   DateTime
+  checkOut  DateTime?
+  status    String    @default("PRESENT") // PRESENT, ABSENT, HALF_DAY
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Payroll {
+  id          String   @id @default(uuid())
+  userId      String
+  month       String
+  year        Int
+  baseSalary  Float
+  deductions  Float    @default(0)
+  bonuses     Float    @default(0)
+  netSalary   Float
+  status      String   @default("PENDING") // PENDING, PROCESSED, PAID
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model FollowUp {
+  id          String   @id @default(uuid())
+  patientId   String
+  type        String // APPOINTMENT, MEDICINE, GENERAL
+  scheduledAt DateTime
+  status      String   @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model Reminder {
+  id        String   @id @default(uuid())
+  patientId String?
+  type      String // APPOINTMENT, FOLLOW_UP, MEDICINE
+  channel   String // SMS, WHATSAPP, EMAIL
+  message   String
+  sendAt    DateTime
+  status    String   @default("SCHEDULED") // SCHEDULED, SENT, FAILED
+  createdAt DateTime @default(now())
+
+  patient Patient? @relation(fields: [patientId], references: [id])
+}
+
+model PatientDocument {
+  id        String   @id @default(uuid())
+  patientId String
+  name      String
+  type      String // LAB_REPORT, SCAN, PRESCRIPTION, OTHER
+  url       String?
+  fileData  String?  // base64 image data
+  mimeType  String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id])
+}
+
+model ClinicSettings {
+  id              String @id @default("default")
+  clinicName      String @default("Magil Clinic")
+  consultStartHour Int   @default(17) // 5 PM
+  consultEndHour   Int   @default(21) // 9 PM
+  slotMinutes     Int    @default(15)
+  updatedAt       DateTime @updatedAt
+}

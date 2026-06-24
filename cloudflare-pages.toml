@@ -1,0 +1,12 @@
+# Cloudflare Pages build configuration
+# https://developers.cloudflare.com/pages/configuration/build-configuration/
+
+[build]
+command = "cd frontend && npm ci && npm run build"
+cwd = ""
+
+[build.environment]
+NODE_VERSION = "20"
+NEXT_PUBLIC_API_URL = "http://localhost:5001"
+
+# Set NEXT_PUBLIC_API_URL in Cloudflare dashboard for production

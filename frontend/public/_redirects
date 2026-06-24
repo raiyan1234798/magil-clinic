@@ -1,0 +1,2 @@
+# Cloudflare Pages — SPA fallback for client-side routes
+/patients/*  /patients/index.html  200

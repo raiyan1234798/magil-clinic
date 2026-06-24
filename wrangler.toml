@@ -1,0 +1,26 @@
+# Cloudflare Workers / Pages / R2 / D1 configuration for Magil Clinic
+# Docs: https://developers.cloudflare.com/pages/
+
+name = "magil-clinic"
+compatibility_date = "2024-12-01"
+
+# ─── D1 Database (production SQLite replacement) ───────────────────────────────
+# Create: wrangler d1 create magil-clinic-db
+# Then uncomment and set database_id from the create output:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "magil-clinic-db"
+# database_id = "YOUR_D1_DATABASE_ID"
+
+# ─── R2 Object Storage (patient document uploads) ────────────────────────────
+# Create: wrangler r2 bucket create magil-clinic-documents
+# [[r2_buckets]]
+# binding = "DOCUMENTS"
+# bucket_name = "magil-clinic-documents"
+
+# ─── Environment variables (set in Cloudflare dashboard or via wrangler secret) ─
+# R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL
+# JWT_SECRET, DATABASE_URL (for external backend hosting)
+
+[vars]
+ENVIRONMENT = "production"

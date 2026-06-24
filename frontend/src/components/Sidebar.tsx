@@ -2,31 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   LayoutDashboard, Users, Calendar, Stethoscope, Pill, FileText,
-  Settings, CreditCard, UserCircle, Package, HeartHandshake,
-  Clock, Wallet, Building2, TrendingUp, Bell, ClipboardList, X
+  Settings, CreditCard, UserCircle, Package,
+  Clock, Wallet, Building2, Bell, ClipboardList, X, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { canAccessMenu, getUser, ROLE_LABELS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Users, label: "Patients", href: "/patients" },
-  { icon: Calendar, label: "Appointments", href: "/appointments" },
-  { icon: Stethoscope, label: "Doctors", href: "/doctors" },
-  { icon: ClipboardList, label: "Consultations", href: "/consultations" },
-  { icon: CreditCard, label: "Billing", href: "/billing" },
-  { icon: Pill, label: "Pharmacy", href: "/pharmacy" },
-  { icon: Package, label: "Inventory", href: "/inventory" },
-  { icon: HeartHandshake, label: "CRM", href: "/crm" },
-  { icon: Clock, label: "Attendance", href: "/attendance" },
-  { icon: Wallet, label: "Payroll", href: "/payroll" },
-  { icon: Building2, label: "Employees", href: "/employees" },
-  { icon: TrendingUp, label: "Finance", href: "/finance" },
-  { icon: FileText, label: "Reports", href: "/reports" },
-  { icon: Bell, label: "Reminders", href: "/reminders" },
+type NavItem = { icon: typeof LayoutDashboard; label: string; href: string };
+
+const navGroups: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Overview",
+    items: [{ icon: LayoutDashboard, label: "Dashboard", href: "/" }],
+  },
+  {
+    label: "Clinical",
+    items: [
+      { icon: Users, label: "Patients", href: "/patients" },
+      { icon: Calendar, label: "Appointments", href: "/appointments" },
+      { icon: Stethoscope, label: "Doctors", href: "/doctors" },
+      { icon: ClipboardList, label: "Consultations", href: "/consultations" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { icon: Pill, label: "Pharmacy", href: "/pharmacy" },
+      { icon: Package, label: "Inventory", href: "/inventory" },
+      { icon: Bell, label: "Reminders", href: "/reminders" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { icon: CreditCard, label: "Billing", href: "/billing" },
+      { icon: FileText, label: "Reports", href: "/reports" },
+      { icon: Wallet, label: "Payroll", href: "/payroll" },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { icon: Building2, label: "Employees", href: "/employees" },
+      { icon: Clock, label: "Attendance", href: "/attendance" },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -38,71 +63,125 @@ export function Sidebar({ className = "", onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const user = getUser();
   const role = user?.role || "DOCTOR_ADMIN";
-  const visibleItems = menuItems.filter((item) => canAccessMenu(role, item.href));
+  const [collapsed, setCollapsed] = useState(false);
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== "/" && pathname?.startsWith(href));
+
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccessMenu(role, item.href)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
-    <aside className={`w-64 bg-primary text-primary-foreground min-h-screen flex flex-col shadow-xl shrink-0 ${className}`}>
-      <div className="p-4 sm:p-6 flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-            <Stethoscope className="h-7 w-7 sm:h-8 sm:w-8 text-secondary shrink-0" />
-            Magil Clinic
-          </h2>
-          <p className="text-xs text-primary-foreground/60 mt-1">Management System</p>
-        </div>
-        {onNavigate && (
+    <aside
+      className={cn(
+        "flex min-h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
+        collapsed ? "w-[72px]" : "w-64",
+        className
+      )}
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-sidebar-border p-4">
+        <Link href="/" onClick={onNavigate} className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <Stethoscope className="h-5 w-5" />
+          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">Magil Clinic</p>
+              <p className="text-[11px] text-muted-foreground">Unified Platform</p>
+            </div>
+          )}
+        </Link>
+        {onNavigate ? (
           <Button
             type="button"
             variant="ghost"
-            size="icon"
-            className="lg:hidden text-white hover:bg-white/10 shrink-0"
+            size="icon-sm"
+            className="lg:hidden"
             onClick={onNavigate}
             aria-label="Close menu"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="hidden lg:flex"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         )}
       </div>
 
-      <nav className="flex-1 px-3 sm:px-4 overflow-y-auto">
-        <ul className="space-y-1">
-          {visibleItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href));
-            return (
-              <li key={item.label}>
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={`flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-lg transition-colors text-sm ${
-                    isActive ? "bg-white/20 font-semibold" : "hover:bg-white/10 font-medium"
-                  }`}
-                >
-                  <item.icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
+        {visibleGroups.map((group) => (
+          <div key={group.label} className="mb-4 last:mb-0">
+            {!collapsed && (
+              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {group.label}
+              </p>
+            )}
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={onNavigate}
+                      title={collapsed ? item.label : undefined}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                        active
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                          : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                        collapsed && "justify-center px-2"
+                      )}
+                    >
+                      <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+                      {!collapsed && <span>{item.label}</span>}
+                      {active && !collapsed && (
+                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      <NotificationPanel />
+      {!collapsed && <NotificationPanel />}
 
-      <div className="p-3 sm:p-4 border-t border-white/10">
+      <div className="border-t border-sidebar-border p-3">
         <Link
           href="/settings"
           onClick={onNavigate}
-          className="flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-lg hover:bg-white/10 transition-colors text-sm"
+          className={cn(
+            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent/60",
+            pathname === "/settings" && "bg-sidebar-accent text-sidebar-accent-foreground",
+            collapsed && "justify-center px-2"
+          )}
         >
-          <Settings className="h-4 w-4" />
-          <span className="font-medium">Settings</span>
+          <Settings className="h-4 w-4 shrink-0" />
+          {!collapsed && <span>Settings</span>}
         </Link>
-        <div className="flex items-center gap-3 px-3 sm:px-4 py-2.5 mt-1">
-          <UserCircle className="h-5 w-5 shrink-0" />
-          <div className="min-w-0">
-            <p className="font-medium text-sm truncate">{user?.name || "Test Admin"}</p>
-            <p className="text-xs text-primary-foreground/70">{ROLE_LABELS[role] || role}</p>
-          </div>
+        <div className={cn("mt-2 flex items-center gap-3 rounded-lg px-3 py-2", collapsed && "justify-center px-2")}>
+          <UserCircle className="h-8 w-8 shrink-0 text-muted-foreground" />
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{user?.name || "Test Admin"}</p>
+              <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[role] || role}</p>
+            </div>
+          )}
         </div>
       </div>
     </aside>

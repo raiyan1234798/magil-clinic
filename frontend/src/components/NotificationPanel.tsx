@@ -40,50 +40,50 @@ export function NotificationPanel() {
   const count = error ? 0 : data?.totalToday || 0;
 
   return (
-    <div className="relative px-4 mb-2">
+    <div className="relative border-t border-sidebar-border px-3 py-2">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-white/10 transition-colors text-sm"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-sidebar-accent/60"
       >
         <div className="relative">
-          <Bell className="h-4 w-4" />
+          <Bell className="h-4 w-4 text-muted-foreground" />
           {count > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-red-500 text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
               {count}
             </span>
           )}
         </div>
-        <span className="font-medium">Today&apos;s Appointments</span>
+        <span className="font-medium text-foreground">Today&apos;s Appointments</span>
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-4 right-4 mb-2 bg-white text-slate-900 rounded-lg shadow-xl border max-h-80 overflow-y-auto z-50">
-          <div className="p-3 border-b bg-slate-50 rounded-t-lg">
-            <p className="font-semibold text-sm flex items-center gap-2">
+        <div className="absolute bottom-full left-3 right-3 z-50 mb-2 max-h-80 overflow-y-auto rounded-xl border border-border bg-card text-foreground shadow-lg">
+          <div className="rounded-t-xl border-b bg-muted/30 p-3">
+            <p className="flex items-center gap-2 text-sm font-semibold">
               <Calendar className="h-4 w-4 text-primary" />
               {error ? "Appointments unavailable" : `${count} appointment${count !== 1 ? "s" : ""} today`}
             </p>
           </div>
           {error && (
-            <p className="p-4 text-sm text-red-600 text-center">{error}</p>
+            <p className="p-4 text-center text-sm text-destructive">{error}</p>
           )}
           {!error && data?.doctorSchedules?.length === 0 && (
-            <p className="p-4 text-sm text-slate-500 text-center">No appointments today</p>
+            <p className="p-4 text-center text-sm text-muted-foreground">No appointments today</p>
           )}
           {!error && data?.doctorSchedules?.map((schedule: any) => (
-            <div key={schedule.doctor.id} className="p-3 border-b last:border-0">
-              <p className="font-semibold text-sm text-primary">{schedule.doctor.name}</p>
-              <p className="text-xs text-slate-500 mb-2">{schedule.doctor.specialization}</p>
+            <div key={schedule.doctor.id} className="border-b p-3 last:border-0">
+              <p className="text-sm font-semibold text-primary">{schedule.doctor.name}</p>
+              <p className="mb-2 text-xs text-muted-foreground">{schedule.doctor.specialization}</p>
               {schedule.appointments.map((apt: any) => (
-                <div key={apt.id} className="text-xs bg-slate-50 rounded p-2 mb-1.5 last:mb-0">
+                <div key={apt.id} className="mb-1.5 rounded-lg bg-muted/30 p-2 text-xs last:mb-0">
                   <div className="flex items-center gap-1 font-medium">
                     <User className="h-3 w-3" />
                     {apt.patient.name} <span className="text-primary">({apt.patient.patientId})</span>
                   </div>
-                  <p className="text-slate-500 mt-0.5">
+                  <p className="mt-0.5 text-muted-foreground">
                     {formatTime(apt.appointmentDate)} · {apt.tokenLabel || `Token ${apt.tokenNumber}`} · {apt.patient.phoneNumber}
                   </p>
-                  {apt.reason && <p className="text-slate-400 mt-0.5">{apt.reason}</p>}
+                  {apt.reason && <p className="mt-0.5 text-muted-foreground/70">{apt.reason}</p>}
                 </div>
               ))}
             </div>

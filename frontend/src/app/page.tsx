@@ -1,11 +1,20 @@
 "use client";
 
 import { PageLayout } from "@/components/PageLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, Calendar, Pill, DollarSign, Activity, Stethoscope, Bell } from "lucide-react";
+import { StatCard } from "@/components/StatCard";
+import { QuickAction } from "@/components/QuickAction";
+import { StatusBadge } from "@/components/StatusBadge";
+import { PageCard, PageCardHeader } from "@/components/PageCard";
+import { EmptyState } from "@/components/EmptyState";
+import { AvatarInitials } from "@/components/AvatarInitials";
+import {
+  Users, Calendar, Pill, DollarSign,
+  UserPlus, FileText, Package, AlertTriangle, Clock
+} from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiFetch, formatCurrency, formatTime, STATUS_COLORS } from "@/lib/api";
+import { apiFetch, formatCurrency, formatTime } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 
 interface DashboardData {
   todayAppointments: number;
@@ -28,166 +37,200 @@ interface DashboardData {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [notifications, setNotifications] = useState<any>(null);
+  const loading = !data;
 
   useEffect(() => {
     apiFetch<DashboardData>("/api/dashboard").then(setData).catch(console.error);
     apiFetch("/api/notifications").then(setNotifications).catch(console.error);
   }, []);
 
-  const metrics = data ? [
-    { title: "Today's Appointments", value: String(data.todayAppointments), icon: Calendar, color: "text-blue-500" },
-    { title: "Walk-in Patients", value: String(data.walkIns), icon: Users, color: "text-green-500" },
-    { title: "Low Stock Medicines", value: String(data.lowStock), icon: Pill, color: "text-orange-500" },
-    { title: "Revenue Summary", value: formatCurrency(data.revenue), icon: DollarSign, color: "text-purple-500" },
-  ] : [];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <PageLayout title="Dashboard" description="Welcome back! Here is today's overview.">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {data ? metrics.map((metric) => {
-          const Icon = metric.icon;
-          return (
-            <Card key={metric.title}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-slate-600">{metric.title}</CardTitle>
-                <Icon className={`h-5 w-5 ${metric.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-slate-900">{metric.value}</div>
-              </CardContent>
-            </Card>
-          );
-        }) : [1, 2, 3, 4].map((i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-slate-600">Loading...</CardTitle></CardHeader>
-            <CardContent><div className="text-3xl font-bold text-slate-300">—</div></CardContent>
-          </Card>
-        ))}
+    <PageLayout
+      title={`${greeting}`}
+      description="Your clinic command center — everything you need at a glance."
+    >
+      {/* Quick Actions */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
+        <QuickAction href="/patients/new" label="Add Patient" description="Register new patient" icon={UserPlus} />
+        <QuickAction href="/appointments" label="Book Appointment" description="Schedule a visit" icon={Calendar} />
+        <QuickAction href="/billing" label="Create Invoice" description="Bill a patient" icon={FileText} />
+        <QuickAction href="/pharmacy" label="Dispense Rx" description="Pharmacy counter" icon={Pill} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" /> Recent Appointments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+      {/* KPI Row */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Today's Appointments" value={String(data?.todayAppointments ?? 0)} icon={Calendar} accent="blue" loading={loading} />
+        <StatCard title="Walk-in Patients" value={String(data?.walkIns ?? 0)} icon={Users} accent="teal" loading={loading} />
+        <StatCard title="Low Stock Alerts" value={String(data?.lowStock ?? 0)} icon={Package} accent="amber" loading={loading} trend={data?.lowStock ? "Needs attention" : undefined} />
+        <StatCard title="Today's Revenue" value={data ? formatCurrency(data.revenue) : "—"} icon={DollarSign} accent="violet" loading={loading} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Today's Queue */}
+        <PageCard className="lg:col-span-2" noPadding>
+          <div className="p-4 sm:p-6">
+            <PageCardHeader
+              title="Today's Queue"
+              description="Upcoming and in-progress appointments"
+              action={
+                <Link href="/appointments">
+                  <Button variant="outline" size="sm">View all</Button>
+                </Link>
+              }
+            />
+            <div className="space-y-2">
               {data?.recentAppointments.map((apt) => (
-                <div key={apt.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-slate-500" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-slate-900">{apt.patient.name} <span className="text-primary text-sm">({apt.patient.patientId})</span></p>
-                      <p className="text-sm text-slate-500">Token: {apt.tokenNumber} · Dr. {apt.doctor?.name || "Unassigned"}</p>
+                <div
+                  key={apt.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/50 p-3 transition-colors hover:bg-muted/30"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <AvatarInitials name={apt.patient.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {apt.patient.name}
+                        <span className="ml-1.5 text-xs font-normal text-primary">({apt.patient.patientId})</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Token {apt.tokenNumber} · Dr. {apt.doctor?.name || "Unassigned"}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-slate-900">{formatTime(apt.appointmentDate)}</p>
-                    <Badge className={STATUS_COLORS[apt.status] || ""}>{apt.status}</Badge>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-medium">{formatTime(apt.appointmentDate)}</p>
+                    <StatusBadge status={apt.status} />
                   </div>
                 </div>
               ))}
               {data?.recentAppointments.length === 0 && (
-                <p className="text-center text-slate-500 py-4">No appointments today.</p>
+                <EmptyState icon={Calendar} title="No appointments today" description="Schedule one from the appointments page." />
+              )}
+              {loading && (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => <div key={i} className="skeleton h-16 w-full" />)}
+                </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </PageCard>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5" /> Doctor Availability
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+        {/* Doctor Availability */}
+        <PageCard noPadding>
+          <div className="p-4 sm:p-6">
+            <PageCardHeader title="Doctor Availability" description="Current status" />
+            <div className="space-y-2">
               {data?.doctors.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">{doc.name}</p>
-                    <p className="text-xs text-slate-500">{doc.specialization}</p>
+                <div key={doc.id} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{doc.name}</p>
+                    <p className="text-xs text-muted-foreground">{doc.specialization}</p>
                   </div>
-                  <Badge className={STATUS_COLORS[doc.availability] || ""}>{doc.availability.replace("_", " ")}</Badge>
+                  <StatusBadge status={doc.availability} />
                 </div>
               ))}
+              {loading && [1, 2].map((i) => <div key={i} className="skeleton h-14 w-full" />)}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </PageCard>
       </div>
 
-      {notifications?.doctorSchedules?.length > 0 && (
-        <Card className="mt-8 border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" /> Today&apos;s Doctor Schedules — Appointments to Attend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {notifications.doctorSchedules.map((schedule: any) => (
-                <div key={schedule.doctor.id} className="border rounded-lg p-4 bg-slate-50">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="font-bold text-primary">{schedule.doctor.name}</p>
-                      <p className="text-xs text-slate-500">{schedule.doctor.specialization}</p>
+      {/* Alerts Row */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PageCard noPadding>
+          <div className="p-4 sm:p-6">
+            <PageCardHeader
+              title="Low Stock Alerts"
+              description="Medicines below minimum threshold"
+              action={
+                <Link href="/inventory">
+                  <Button variant="outline" size="sm">Inventory</Button>
+                </Link>
+              }
+            />
+            {data?.lowStockMeds.length ? (
+              <div className="space-y-2">
+                {data.lowStockMeds.map((med) => (
+                  <div key={med.id} className="flex items-center gap-3 rounded-lg border border-amber-200/60 bg-amber-50/50 p-3 dark:border-amber-900/30 dark:bg-amber-950/20">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{med.name}</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        {med.stock} left · min {med.minStock}
+                      </p>
                     </div>
-                    <Badge>{schedule.appointments.length} patient{schedule.appointments.length !== 1 ? "s" : ""}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon={Package} title="All stocked" description="No medicines below minimum threshold." />
+            )}
+          </div>
+        </PageCard>
+
+        <PageCard noPadding>
+          <div className="p-4 sm:p-6">
+            <PageCardHeader
+              title="Pending Follow-ups"
+              description="Patients awaiting outreach"
+              action={
+                <Link href="/patients?tab=followups">
+                  <Button variant="outline" size="sm">Manage</Button>
+                </Link>
+              }
+            />
+            <div className="flex flex-col items-center justify-center py-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                <Clock className="h-8 w-8 text-primary" />
+              </div>
+              <p className="mt-3 text-4xl font-semibold tracking-tight">{data?.pendingFollowUps ?? 0}</p>
+              <p className="text-sm text-muted-foreground">follow-ups pending</p>
+            </div>
+          </div>
+        </PageCard>
+      </div>
+
+      {/* Doctor Schedules */}
+      {notifications?.doctorSchedules?.length > 0 && (
+        <PageCard className="mt-6 border-primary/20" noPadding>
+          <div className="p-4 sm:p-6">
+            <PageCardHeader
+              title="Today's Doctor Schedules"
+              description="Appointments grouped by doctor"
+            />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {notifications.doctorSchedules.map((schedule: any) => (
+                <div key={schedule.doctor.id} className="rounded-xl border border-border/60 bg-muted/20 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-primary">{schedule.doctor.name}</p>
+                      <p className="text-xs text-muted-foreground">{schedule.doctor.specialization}</p>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                      {schedule.appointments.length} patient{schedule.appointments.length !== 1 ? "s" : ""}
+                    </span>
                   </div>
                   <div className="space-y-2">
                     {schedule.appointments.map((apt: any) => (
-                      <div key={apt.id} className="bg-white rounded p-2 text-sm border">
-                        <p className="font-semibold">{apt.patient.name} <span className="text-primary">({apt.patient.patientId})</span></p>
-                        <p className="text-slate-500 text-xs">{formatTime(apt.appointmentDate)} · Token {apt.tokenNumber} · {apt.patient.phoneNumber}</p>
-                        {apt.reason && <p className="text-slate-400 text-xs mt-0.5">{apt.reason}</p>}
+                      <div key={apt.id} className="rounded-lg border border-border/40 bg-card p-2.5 text-sm">
+                        <p className="font-medium">
+                          {apt.patient.name}
+                          <span className="ml-1 text-xs text-primary">({apt.patient.patientId})</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTime(apt.appointmentDate)} · Token {apt.tokenNumber}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </PageCard>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Low Stock Alerts</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {data?.lowStockMeds.map((med) => (
-                <div key={med.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <div>
-                    <p className="font-medium text-slate-900">{med.name}</p>
-                    <p className="text-sm text-red-500">Only {med.stock} left (min: {med.minStock})</p>
-                  </div>
-                </div>
-              ))}
-              {data?.lowStockMeds.length === 0 && (
-                <p className="text-center text-slate-500 py-4">All medicines are well stocked.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pending Follow-ups</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <p className="text-4xl font-bold text-primary">{data?.pendingFollowUps ?? 0}</p>
-              <p className="text-slate-500 mt-2">follow-ups awaiting action</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </PageLayout>
   );
 }

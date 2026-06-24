@@ -1,8 +1,12 @@
 "use client";
 
 import { PageLayout } from "@/components/PageLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageCard, PageCardHeader } from "@/components/PageCard";
+import { StatCard } from "@/components/StatCard";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
+import { AvatarInitials } from "@/components/AvatarInitials";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -78,35 +82,26 @@ export default function PatientDetail() {
         </Link>
       }
     >
-      <Card className="mb-8 border-primary/20 bg-primary/5">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <PageCard className="mb-6 border-primary/20 bg-primary/5">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-4">
+            <AvatarInitials name={patient.name} size="lg" />
             <div>
-              <p className="text-sm text-slate-500">Patient ID</p>
-              <p className="text-3xl font-bold text-primary">{patient.patientId}</p>
-              <p className="text-slate-600 mt-1 capitalize">{patient.gender}, {patient.age} years · Registered {formatDate(patient.createdAt)}</p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                <p className="text-2xl font-bold">{stats.visitCount || 0}</p>
-                <p className="text-xs text-slate-500">Total Visits</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                <p className="text-2xl font-bold">{stats.billCount || 0}</p>
-                <p className="text-xs text-slate-500">Bills</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                <p className="text-2xl font-bold text-green-600">{formatCurrency(stats.totalPaid || 0)}</p>
-                <p className="text-xs text-slate-500">Total Paid</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                <p className="text-2xl font-bold">{stats.medicationCount || 0}</p>
-                <p className="text-xs text-slate-500">Medicines Given</p>
-              </div>
+              <p className="text-sm text-muted-foreground">Patient ID</p>
+              <p className="text-2xl font-bold text-primary sm:text-3xl">{patient.patientId}</p>
+              <p className="mt-1 capitalize text-sm text-muted-foreground">
+                {patient.gender}, {patient.age} years · Registered {formatDate(patient.createdAt)}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard title="Visits" value={String(stats.visitCount || 0)} icon={Activity} accent="blue" className="p-4" />
+            <StatCard title="Bills" value={String(stats.billCount || 0)} icon={Receipt} accent="teal" className="p-4" />
+            <StatCard title="Paid" value={formatCurrency(stats.totalPaid || 0)} icon={Receipt} accent="violet" className="p-4" />
+            <StatCard title="Medicines" value={String(stats.medicationCount || 0)} icon={Pill} accent="amber" className="p-4" />
+          </div>
+        </div>
+      </PageCard>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {[

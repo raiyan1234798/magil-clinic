@@ -7,9 +7,9 @@ export const ROLE_LABELS: Record<string, string> = {
 
 export const ROLE_MENU: Record<string, string[]> = {
   DOCTOR_ADMIN: ["*"],
-  NURSE_RECEPTIONIST: ["/", "/patients", "/appointments", "/consultations", "/billing", "/crm", "/reminders"],
+  NURSE_RECEPTIONIST: ["/", "/patients", "/appointments", "/consultations", "/billing", "/reminders"],
   PHARMACIST: ["/", "/patients", "/pharmacy", "/inventory"],
-  FINANCE_MANAGER: ["/", "/billing", "/finance", "/payroll", "/reports", "/employees", "/attendance"],
+  FINANCE_MANAGER: ["/", "/billing", "/payroll", "/reports", "/employees", "/attendance"],
 };
 
 export function canAccessMenu(role: string, href: string): boolean {

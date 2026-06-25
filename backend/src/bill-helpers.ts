@@ -125,38 +125,40 @@ export async function createBill(
     },
   };
 
-  const txOps = [
-    prisma.bill.create({ data: billData }),
-    ...(type === 'PHARMACY'
-      ? processedItems.flatMap((item) => {
-          if (!item.medicineId || item.medicineStock === undefined) return [];
-          return [
-            prisma.medicine.update({
-              where: { id: item.medicineId },
-              data: { stock: Math.max(0, item.medicineStock - item.quantity) },
-            }),
-            prisma.stockMovement.create({
-              data: {
-                medicineId: item.medicineId,
-                type: 'STOCK_OUT',
-                quantity: item.quantity,
-                notes: `Bill ${billNumber}`,
-              },
-            }),
-          ];
-        })
-      : []),
-    prisma.income.create({
-      data: { source: type, description: `Bill ${billNumber}`, amount: amounts.total },
-    }),
-  ];
-
-  const [created] = await prisma.$transaction(txOps);
-  const bill = await prisma.bill.findUnique({
-    where: { id: created.id },
+  // Sequential writes — D1 does not support Prisma transactions (interactive or batch).
+  const created = await prisma.bill.create({
+    data: billData,
     include: { patient: true, items: { include: { medicine: true } } },
   });
-  if (!bill) throw new Error('Failed to create bill');
+
+  try {
+    if (type === 'PHARMACY') {
+      for (const item of processedItems) {
+        if (!item.medicineId || item.medicineStock === undefined) continue;
+        await prisma.medicine.update({
+          where: { id: item.medicineId },
+          data: { stock: Math.max(0, item.medicineStock - item.quantity) },
+        });
+        await prisma.stockMovement.create({
+          data: {
+            medicineId: item.medicineId,
+            type: 'STOCK_OUT',
+            quantity: item.quantity,
+            notes: `Bill ${billNumber}`,
+          },
+        });
+      }
+    }
+
+    await prisma.income.create({
+      data: { source: type, description: `Bill ${billNumber}`, amount: amounts.total },
+    });
+  } catch (err) {
+    await prisma.bill.delete({ where: { id: created.id } }).catch(() => {});
+    throw err;
+  }
+
+  const bill = created;
 
   return {
     ...bill,

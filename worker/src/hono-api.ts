@@ -399,52 +399,21 @@ export function buildHonoApi(prisma: PrismaClient, options: { jwtSecret?: string
   });
 
   app.post('/api/bills', async (c) => {
-    const body = await c.req.json();
-    const { patientId, type, items, paymentMethod, gstEnabled, gstRate } = body;
-    if (!patientId) return c.json({ error: 'Patient is required' }, 400);
-    if (!items?.length) return c.json({ error: 'At least one line item is required' }, 400);
-    const settings = await ensureClinicSettings(prisma);
-    const enabled = gstEnabled !== undefined ? Boolean(gstEnabled) : settings.gstEnabled;
-    const rate = gstRate !== undefined ? parseFloat(gstRate) : settings.gstRate;
-    const count = await prisma.bill.count();
-    const subtotal = items.reduce((s: number, i: { unitPrice: number; quantity: number }) => s + i.unitPrice * i.quantity, 0);
-    const gstAmount = enabled ? subtotal * (rate / 100) : 0;
-    const total = subtotal + gstAmount;
-    const bill = await prisma.bill.create({
-      data: {
-        billNumber: `INV-2026-${(count + 1).toString().padStart(3, '0')}`,
-        patientId,
-        type,
-        subtotal,
-        gstEnabled: enabled,
-        gstRate: rate,
-        gstAmount,
-        total,
-        paidAmount: total,
-        paymentStatus: 'PAID',
-        paymentMethod,
-        items: {
-          create: items.map((i: { description: string; quantity: number; unitPrice: number; medicineId?: string }) => ({
-            description: i.description,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            total: i.unitPrice * i.quantity,
-            medicineId: i.medicineId,
-          })),
-        },
-      },
-      include: { patient: true, items: true },
-    });
-    await prisma.income.create({ data: { source: type, description: `Bill ${bill.billNumber}`, amount: total } });
-    return c.json({
-      ...bill,
-      clinic: {
-        name: settings.clinicName || 'Magil Clinic',
-        address: 'Magil Clinic Management System',
-        phone: '+91 9876543210',
-        gstin: 'GSTIN-MAGIL-2026',
-      },
-    });
+    try {
+      const body = await c.req.json();
+      const settings = await ensureClinicSettings(prisma);
+      const { createBill } = await import('../../backend/src/bill-helpers');
+      const bill = await createBill(prisma, body, {
+        gstEnabled: settings.gstEnabled,
+        gstRate: settings.gstRate,
+        clinicName: settings.clinicName,
+      });
+      return c.json(bill);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to create bill';
+      const status = msg.includes('required') || msg.includes('Insufficient') || msg.includes('Invalid') || msg.includes('not found') ? 400 : 500;
+      return c.json({ error: msg }, status);
+    }
   });
 
   app.get('/api/finance', async (c) => {

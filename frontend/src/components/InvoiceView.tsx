@@ -9,11 +9,20 @@ interface InvoiceViewProps {
   onClose?: () => void;
 }
 
+function billToLabel(bill: any) {
+  if (bill.patient?.name) return bill.patient.name;
+  if (bill.walkInName) return bill.walkInName;
+  if (bill.isAnonymous) return "Walk-in Customer";
+  return "Walk-in Customer";
+}
+
 export function InvoiceView({ bill, onClose }: InvoiceViewProps) {
   const clinic = bill.clinic || { name: "Magil Clinic", address: "Magil Clinic Management System", phone: "+91 9876543210", gstin: "GSTIN-MAGIL-2026" };
   const items = bill.items || [];
-  const gstEnabled = bill.gstEnabled !== false && bill.gstAmount > 0;
-  const gstRate = bill.gstRate ?? (bill.subtotal > 0 ? Math.round((bill.gstAmount / bill.subtotal) * 100) : 0);
+  const gstEnabled = bill.gstEnabled === true && bill.gstAmount > 0;
+  const gstRate = bill.gstRate ?? 0;
+  const discountAmount = bill.discountAmount ?? 0;
+  const discountPercent = bill.discountPercent ?? 0;
 
   const handlePrint = () => {
     window.print();
@@ -36,9 +45,12 @@ export function InvoiceView({ bill, onClose }: InvoiceViewProps) {
         </div>
         <div className="sm:text-right">
           <p className="font-semibold">Bill To:</p>
-          <p>{bill.patient?.name || "Walk-in Patient"}</p>
+          <p>{billToLabel(bill)}</p>
           {bill.patient?.patientId && <p className="text-slate-500">ID: {bill.patient.patientId}</p>}
-          {bill.patient?.phoneNumber && <p className="text-slate-500">{bill.patient.phoneNumber}</p>}
+          {(bill.patient?.phoneNumber || bill.walkInPhone) && (
+            <p className="text-slate-500">{bill.patient?.phoneNumber || bill.walkInPhone}</p>
+          )}
+          {bill.isAnonymous && <p className="text-slate-500 text-xs mt-1">Medicine sale — no patient record</p>}
         </div>
       </div>
 
@@ -74,6 +86,12 @@ export function InvoiceView({ bill, onClose }: InvoiceViewProps) {
       <div className="flex justify-end mb-6">
         <div className="w-full sm:w-64 space-y-2 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(bill.subtotal)}</span></div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-rose-600">
+              <span>Discount ({discountPercent}%)</span>
+              <span>-{formatCurrency(discountAmount)}</span>
+            </div>
+          )}
           {gstEnabled ? (
             <div className="flex justify-between"><span>GST ({gstRate}%)</span><span>{formatCurrency(bill.gstAmount)}</span></div>
           ) : (

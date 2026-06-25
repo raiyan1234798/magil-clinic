@@ -235,21 +235,26 @@ model Purchase {
 }
 
 model Bill {
-  id            String   @id @default(uuid())
-  billNumber    String   @unique
-  patientId     String?
-  type          String // CONSULTATION, PHARMACY, SERVICE
-  subtotal      Float
-  gstEnabled    Boolean  @default(true)
-  gstRate       Float    @default(18)
-  gstAmount     Float    @default(0)
-  total         Float
-  paidAmount    Float    @default(0)
-  paymentStatus String   @default("PENDING") // PENDING, PARTIAL, PAID
-  paymentMethod String?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid())
+  billNumber      String   @unique
+  patientId       String?
+  walkInName      String?
+  walkInPhone     String?
+  isAnonymous     Boolean  @default(false)
+  type            String // CONSULTATION, PHARMACY, SERVICE
+  subtotal        Float
+  discountPercent Float    @default(0)
+  discountAmount  Float    @default(0)
+  gstEnabled      Boolean  @default(true)
+  gstRate         Float    @default(18)
+  gstAmount       Float    @default(0)
+  total           Float
+  paidAmount      Float    @default(0)
+  paymentStatus   String   @default("PENDING") // PENDING, PARTIAL, PAID
+  paymentMethod   String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   patient Patient?   @relation(fields: [patientId], references: [id])
   items   BillItem[]

@@ -3,7 +3,7 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { PrismaClient } from '@prisma/client';
-import { getSlotTimes, maxTokensPerDay, formatTime12, sendWhatsAppReminder, buildAppointmentWhatsAppMessage, DEFAULT_INTEGRATIONS, DEFAULT_AUTOMATION, parseSettingsJson, formatConsultHoursLabel, parseAttendanceDate, combineDateAndTime, monthDateRange, countAttendanceStatuses, calculatePayrollFromAttendance, MONTH_NAMES, type ClinicHoursConfig, type WhatsAppTemplate } from './utils';
+import { getSlotTimes, maxTokensPerDay, formatTime12, sendWhatsAppReminder, buildAppointmentWhatsAppMessage, buildWhatsAppUrl, DEFAULT_INTEGRATIONS, DEFAULT_AUTOMATION, parseSettingsJson, formatConsultHoursLabel, parseAttendanceDate, combineDateAndTime, monthDateRange, countAttendanceStatuses, calculatePayrollFromAttendance, MONTH_NAMES, type ClinicHoursConfig, type WhatsAppTemplate } from './utils';
 
 export type AppOptions = {
   jwtSecret?: string;
@@ -143,7 +143,7 @@ app.post('/api/setup', async (req, res) => {
 app.get('/api/settings', async (_req, res) => {
   try {
     const settings = await ensureClinicSettings();
-    res.json(serializeSettings(settings));
+    res.json({ ...serializeSettings(settings), whatsappApiConfigured: !!process.env.WHATSAPP_API_KEY });
   } catch { res.status(500).json({ error: 'Failed to fetch settings' }); }
 });
 
@@ -187,7 +187,7 @@ const updateSettings = async (req: express.Request, res: express.Response) => {
         automation: automation ? JSON.stringify(automation) : existing.automation,
       },
     });
-    res.json(serializeSettings(settings));
+    res.json({ ...serializeSettings(settings), whatsappApiConfigured: !!process.env.WHATSAPP_API_KEY });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to update settings' });
@@ -644,7 +644,11 @@ app.post('/api/appointments', async (req, res) => {
 
 app.post('/api/appointments/:id/send-whatsapp', async (req, res) => {
   try {
-    const { template, message: customMessage } = req.body as { template?: WhatsAppTemplate; message?: string };
+    const { template, message: customMessage, mode } = req.body as {
+      template?: WhatsAppTemplate;
+      message?: string;
+      mode?: 'manual' | 'api';
+    };
     const settings = await prisma.clinicSettings.findUnique({ where: { id: 'default' } });
     const integrations = parseSettingsJson(settings?.integrations, DEFAULT_INTEGRATIONS);
     if (!integrations.whatsapp) {
@@ -662,7 +666,35 @@ app.post('/api/appointments/:id/send-whatsapp', async (req, res) => {
 
     const tpl = template || 'BOOKING_CONFIRMED';
     const msg = buildAppointmentWhatsAppMessage(appointment, tpl, customMessage);
-    const { status: waStatus, simulated } = await sendWhatsAppReminder(
+    const sendMode = mode === 'api' ? 'api' : 'manual';
+
+    if (sendMode === 'manual') {
+      const reminder = await prisma.reminder.create({
+        data: {
+          patientId: appointment.patientId,
+          type: 'APPOINTMENT',
+          channel: 'WHATSAPP',
+          message: msg,
+          sendAt: new Date(),
+          status: 'PENDING',
+        },
+      });
+      return res.json({
+        success: true,
+        mode: 'manual',
+        message: msg,
+        template: tpl,
+        patientName: appointment.patient.name,
+        waUrl: buildWhatsAppUrl(appointment.patient.phoneNumber, msg),
+        reminderId: reminder.id,
+      });
+    }
+
+    if (!process.env.WHATSAPP_API_KEY) {
+      return res.status(400).json({ error: 'WhatsApp API not configured. Use Open in WhatsApp instead.' });
+    }
+
+    const { status: waStatus } = await sendWhatsAppReminder(
       appointment.patient.phoneNumber,
       msg,
       process.env.WHATSAPP_API_KEY
@@ -679,7 +711,7 @@ app.post('/api/appointments/:id/send-whatsapp', async (req, res) => {
       },
     });
 
-    res.json({ success: true, sent: waStatus === 'SENT', message: msg, template: tpl, simulated });
+    res.json({ success: true, mode: 'api', sent: waStatus === 'SENT', message: msg, template: tpl });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to send WhatsApp message' });
@@ -1175,6 +1207,19 @@ app.post('/api/reminders', async (req, res) => {
     const reminder = await prisma.reminder.create({ data: { ...req.body, sendAt: new Date(req.body.sendAt) }, include: { patient: true } });
     res.json(reminder);
   } catch { res.status(500).json({ error: 'Failed to create reminder' }); }
+});
+
+app.patch('/api/reminders/:id/mark-sent', async (req, res) => {
+  try {
+    const reminder = await prisma.reminder.update({
+      where: { id: routeId(req) },
+      data: { status: 'SENT' },
+      include: { patient: true },
+    });
+    res.json(reminder);
+  } catch {
+    res.status(500).json({ error: 'Failed to update reminder' });
+  }
 });
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────────

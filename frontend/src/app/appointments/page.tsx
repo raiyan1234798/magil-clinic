@@ -14,7 +14,7 @@ import { PatientCombobox } from "@/components/PatientCombobox";
 import { WhatsAppSendMenu } from "@/components/WhatsAppSendMenu";
 import { Plus, Calendar, Phone, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch, formatDate, formatTime, sendAppointmentWhatsApp, STATUS_COLORS, showApiError } from "@/lib/api";
+import { apiFetch, formatDate, formatTime, openAppointmentWhatsApp, STATUS_COLORS, showApiError } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -57,9 +57,9 @@ export default function AppointmentsPage() {
       if (sendWhatsAppReminder) {
         const template = result.appointmentType === "WALK_IN" ? "BOOKING_CONFIRMED" : "APPOINTMENT_SCHEDULED";
         try {
-          await sendAppointmentWhatsApp(result.id, template);
+          await openAppointmentWhatsApp(result.id, template);
           toast.success(
-            `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}. WhatsApp reminder sent.`,
+            `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}.`,
             { duration: 5000 }
           );
         } catch (err: unknown) {
@@ -67,7 +67,7 @@ export default function AppointmentsPage() {
             `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}.`,
             { duration: 5000 }
           );
-          showApiError(err, "Appointment booked, but WhatsApp reminder failed");
+          showApiError(err, "Appointment booked, but WhatsApp could not be opened");
         }
       } else {
         toast.success(
@@ -150,7 +150,7 @@ export default function AppointmentsPage() {
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-4">
                 <Label htmlFor="sendWhatsAppReminder" className="cursor-pointer text-sm font-normal">
-                  Also send WhatsApp reminder
+                  Also open WhatsApp reminder after booking
                 </Label>
                 <input
                   id="sendWhatsAppReminder"

@@ -88,6 +88,20 @@ export function canAccess(role: string, path: string): boolean {
   return perms.some((p) => path === p || (p !== '/' && path.startsWith(p)));
 }
 
+/** Strip formatting and ensure India country code for wa.me links. */
+export function formatPhoneForWhatsApp(phone: string): string {
+  let digits = phone.replace(/[\s\-().]/g, '');
+  if (digits.startsWith('+')) digits = digits.slice(1);
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('0') && digits.length === 11) digits = digits.slice(1);
+  if (digits.length === 10) digits = `91${digits}`;
+  return digits;
+}
+
+export function buildWhatsAppUrl(phone: string, message: string): string {
+  return `https://wa.me/${formatPhoneForWhatsApp(phone)}?text=${encodeURIComponent(message)}`;
+}
+
 export async function sendWhatsAppReminder(
   phone: string,
   message: string,

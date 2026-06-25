@@ -61,7 +61,7 @@ export default function RemindersPage() {
   return (
     <PageLayout
       title="Reminders"
-      description="Appointment, follow-up, and medicine reminders. WhatsApp messages are sent manually from the Appointments page."
+      description="Appointment, follow-up, and medicine reminders. Use Open in WhatsApp from Appointments to message patients."
       actions={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> New Reminder</Button>} />
@@ -138,7 +138,7 @@ export default function RemindersPage() {
         <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <p className="text-sm font-medium">Appointment WhatsApp ({appointmentReminders.filter((r) => r.channel === "WHATSAPP").length})</p>
-            <p className="text-xs text-muted-foreground">Sent manually from Appointments — not auto-sent on booking.</p>
+            <p className="text-xs text-muted-foreground">Open in WhatsApp from Appointments — tap Send in WhatsApp to deliver.</p>
           </div>
           <Link href="/appointments">
             <Button variant="outline" size="sm" className="gap-2">

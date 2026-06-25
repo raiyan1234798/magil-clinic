@@ -31,6 +31,7 @@ type SettingsForm = {
   automation: Record<string, boolean>;
   consultHoursLabel?: string;
   maxTokens?: number;
+  whatsappApiConfigured?: boolean;
 };
 
 const INTEGRATION_LABELS: Record<string, string> = {
@@ -53,6 +54,11 @@ const AUTOMATION_LABELS: Record<string, string> = {
 };
 
 const FONT_OPTIONS = ["Inter", "Roboto", "Open Sans", "Lato", "Poppins", "Nunito"];
+
+const INTEGRATION_DESCRIPTIONS: Partial<Record<string, string>> = {
+  whatsapp:
+    "Without an API key, use Open in WhatsApp on Appointments to send from your phone. With WHATSAPP_API_KEY configured on the server, automatic sending is also available.",
+};
 
 const INTEGRATION_ICONS: Record<string, LucideIcon> = {
   whatsapp: MessageSquare,
@@ -275,6 +281,13 @@ export default function SettingsPage() {
                 <ToggleCard
                   key={key}
                   label={label}
+                  description={
+                    key === "whatsapp"
+                      ? form.whatsappApiConfigured
+                        ? "Automatic sending enabled (API key configured). You can also use Open in WhatsApp from Appointments."
+                        : INTEGRATION_DESCRIPTIONS.whatsapp
+                      : INTEGRATION_DESCRIPTIONS[key]
+                  }
                   icon={INTEGRATION_ICONS[key] || Plug}
                   enabled={!!form.integrations[key]}
                   onChange={(v) => setForm({ ...form, integrations: { ...form.integrations, [key]: v } })}

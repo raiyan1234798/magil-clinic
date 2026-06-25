@@ -137,12 +137,61 @@ export const WHATSAPP_PHONE_TEMPLATES: { template: WhatsAppTemplate; label: stri
   { template: "DOCTOR_NOT_PRESENT", label: "Doctor Not Present Today" },
 ];
 
-export async function sendAppointmentWhatsApp(appointmentId: string, template: WhatsAppTemplate, message?: string) {
-  return apiFetch<{ success: boolean; sent: boolean; message: string; simulated?: boolean }>(
-    `/api/appointments/${appointmentId}/send-whatsapp`,
-    {
-      method: "POST",
-      body: JSON.stringify({ template, message }),
+export async function sendAppointmentWhatsApp(
+  appointmentId: string,
+  template: WhatsAppTemplate,
+  options?: { message?: string; mode?: "manual" | "api" }
+) {
+  return apiFetch<WhatsAppSendResult>(`/api/appointments/${appointmentId}/send-whatsapp`, {
+    method: "POST",
+    body: JSON.stringify({ template, message: options?.message, mode: options?.mode ?? "manual" }),
+  });
+}
+
+export type WhatsAppSendResult =
+  | {
+      success: boolean;
+      mode: "manual";
+      message: string;
+      patientName: string;
+      waUrl: string;
+      reminderId: string;
+      template?: WhatsAppTemplate;
     }
-  );
+  | {
+      success: boolean;
+      mode: "api";
+      sent: boolean;
+      message: string;
+      template?: WhatsAppTemplate;
+    };
+
+export async function markReminderSent(reminderId: string) {
+  return apiFetch<{ id: string; status: string }>(`/api/reminders/${reminderId}/mark-sent`, {
+    method: "PATCH",
+  });
+}
+
+export function showWhatsAppOpenedToast(patientName: string, reminderId: string) {
+  import("sonner").then(({ toast }) => {
+    toast.success(`WhatsApp opened for ${patientName}. Tap Send in WhatsApp to deliver.`, {
+      duration: 12000,
+      action: {
+        label: "Mark as sent",
+        onClick: () => {
+          markReminderSent(reminderId)
+            .then(() => toast.success("Marked as sent in Reminders"))
+            .catch(() => toast.error("Could not update reminder status"));
+        },
+      },
+    });
+  });
+}
+
+export async function openAppointmentWhatsApp(appointmentId: string, template: WhatsAppTemplate) {
+  const result = await sendAppointmentWhatsApp(appointmentId, template, { mode: "manual" });
+  if (result.mode !== "manual") return result;
+  window.open(result.waUrl, "_blank", "noopener,noreferrer");
+  showWhatsAppOpenedToast(result.patientName, result.reminderId);
+  return result;
 }

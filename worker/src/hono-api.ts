@@ -18,6 +18,7 @@ import {
   parseSettingsJson,
   sendWhatsAppReminder,
   buildAppointmentWhatsAppMessage,
+  buildWhatsAppUrl,
   type WhatsAppTemplate,
 } from '../../backend/src/utils';
 
@@ -353,7 +354,12 @@ export function buildHonoApi(
     return c.json(patient);
   });
 
-  app.get('/api/settings', async (c) => c.json(serializeSettings(await ensureClinicSettings(prisma))));
+  app.get('/api/settings', async (c) =>
+    c.json({
+      ...serializeSettings(await ensureClinicSettings(prisma)),
+      whatsappApiConfigured: !!options.whatsappApiKey,
+    })
+  );
 
   app.put('/api/settings', async (c) => {
     const body = await c.req.json();
@@ -374,7 +380,7 @@ export function buildHonoApi(
         automation: body.automation ? JSON.stringify(body.automation) : existing.automation,
       },
     });
-    return c.json(serializeSettings(settings));
+    return c.json({ ...serializeSettings(settings), whatsappApiConfigured: !!options.whatsappApiKey });
   });
 
   app.patch('/api/settings', async (c) => {
@@ -396,7 +402,7 @@ export function buildHonoApi(
         automation: body.automation ? JSON.stringify(body.automation) : existing.automation,
       },
     });
-    return c.json(serializeSettings(settings));
+    return c.json({ ...serializeSettings(settings), whatsappApiConfigured: !!options.whatsappApiKey });
   });
 
   app.get('/api/bills', async (c) => {
@@ -465,6 +471,19 @@ export function buildHonoApi(
       include: { patient: true },
     });
     return c.json(reminder);
+  });
+
+  app.patch('/api/reminders/:id/mark-sent', async (c) => {
+    try {
+      const reminder = await prisma.reminder.update({
+        where: { id: c.req.param('id') },
+        data: { status: 'SENT' },
+        include: { patient: true },
+      });
+      return c.json(reminder);
+    } catch {
+      return c.json({ error: 'Failed to update reminder' }, 500);
+    }
   });
 
   app.get('/api/appointments', async (c) => {
@@ -538,7 +557,7 @@ export function buildHonoApi(
 
   app.post('/api/appointments/:id/send-whatsapp', async (c) => {
     try {
-      const body = await c.req.json<{ template?: WhatsAppTemplate; message?: string }>();
+      const body = await c.req.json<{ template?: WhatsAppTemplate; message?: string; mode?: 'manual' | 'api' }>();
       const settings = await ensureClinicSettings(prisma);
       const integrations = parseSettingsJson(settings.integrations, DEFAULT_INTEGRATIONS);
       if (!integrations.whatsapp) {
@@ -556,7 +575,35 @@ export function buildHonoApi(
 
       const tpl = body.template || 'BOOKING_CONFIRMED';
       const msg = buildAppointmentWhatsAppMessage(appointment, tpl, body.message);
-      const { status: waStatus, simulated } = await sendWhatsAppReminder(
+      const sendMode = body.mode === 'api' ? 'api' : 'manual';
+
+      if (sendMode === 'manual') {
+        const reminder = await prisma.reminder.create({
+          data: {
+            patientId: appointment.patientId,
+            type: 'APPOINTMENT',
+            channel: 'WHATSAPP',
+            message: msg,
+            sendAt: new Date(),
+            status: 'PENDING',
+          },
+        });
+        return c.json({
+          success: true,
+          mode: 'manual',
+          message: msg,
+          template: tpl,
+          patientName: appointment.patient.name,
+          waUrl: buildWhatsAppUrl(appointment.patient.phoneNumber, msg),
+          reminderId: reminder.id,
+        });
+      }
+
+      if (!options.whatsappApiKey) {
+        return c.json({ error: 'WhatsApp API not configured. Use Open in WhatsApp instead.' }, 400);
+      }
+
+      const { status: waStatus } = await sendWhatsAppReminder(
         appointment.patient.phoneNumber,
         msg,
         options.whatsappApiKey
@@ -573,7 +620,7 @@ export function buildHonoApi(
         },
       });
 
-      return c.json({ success: true, sent: waStatus === 'SENT', message: msg, template: tpl, simulated });
+      return c.json({ success: true, mode: 'api', sent: waStatus === 'SENT', message: msg, template: tpl });
     } catch (e) {
       console.error(e);
       return c.json({ error: 'Failed to send WhatsApp message' }, 500);

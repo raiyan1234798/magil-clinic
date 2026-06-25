@@ -14,7 +14,7 @@ import { PatientCombobox } from "@/components/PatientCombobox";
 import { WhatsAppSendMenu } from "@/components/WhatsAppSendMenu";
 import { Plus, Calendar, Phone, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch, formatDate, formatTime, STATUS_COLORS, showApiError } from "@/lib/api";
+import { apiFetch, formatDate, formatTime, sendAppointmentWhatsApp, STATUS_COLORS, showApiError } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ export default function AppointmentsPage() {
     reason: "",
     appointmentType: "PHONE" as "PHONE" | "WALK_IN",
   });
+  const [sendWhatsAppReminder, setSendWhatsAppReminder] = useState(false);
 
   const user = getUser();
 
@@ -53,12 +54,30 @@ export default function AppointmentsPage() {
         }),
       });
       const slot = result.scheduledSlotStart ? `${formatTime(result.scheduledSlotStart)} – ${formatTime(result.scheduledSlotEnd)}` : "";
-      toast.success(
-        `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}.`,
-        { duration: 5000 }
-      );
+      if (sendWhatsAppReminder) {
+        const template = result.appointmentType === "WALK_IN" ? "BOOKING_CONFIRMED" : "APPOINTMENT_SCHEDULED";
+        try {
+          await sendAppointmentWhatsApp(result.id, template);
+          toast.success(
+            `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}. WhatsApp reminder sent.`,
+            { duration: 5000 }
+          );
+        } catch (err: unknown) {
+          toast.success(
+            `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}.`,
+            { duration: 5000 }
+          );
+          showApiError(err, "Appointment booked, but WhatsApp reminder failed");
+        }
+      } else {
+        toast.success(
+          `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}.`,
+          { duration: 5000 }
+        );
+      }
       setOpen(false);
       setForm({ patientId: "", doctorId: "", appointmentDate: "", reason: "", appointmentType: "PHONE" });
+      setSendWhatsAppReminder(false);
       load();
     } catch (err: unknown) {
       showApiError(err, "Failed to book appointment");
@@ -129,9 +148,18 @@ export default function AppointmentsPage() {
                 <Label>Reason</Label>
                 <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Consultation reason" />
               </div>
-              <p className="text-xs text-muted-foreground rounded-lg bg-muted/40 p-3">
-                You can send a WhatsApp reminder after booking using the Send WhatsApp button on each appointment row.
-              </p>
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 p-4">
+                <Label htmlFor="sendWhatsAppReminder" className="cursor-pointer text-sm font-normal">
+                  Also send WhatsApp reminder
+                </Label>
+                <input
+                  id="sendWhatsAppReminder"
+                  type="checkbox"
+                  checked={sendWhatsAppReminder}
+                  onChange={(e) => setSendWhatsAppReminder(e.target.checked)}
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+              </div>
               <DialogFooter className="px-0 pb-0">
                 <Button type="submit" className="w-full" disabled={!form.patientId || !form.doctorId}>Book Appointment</Button>
               </DialogFooter>

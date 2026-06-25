@@ -1,0 +1,383 @@
+CREATE TABLE IF NOT EXISTS "Patient" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "gender" TEXT NOT NULL,
+    "age" INTEGER NOT NULL,
+    "dateOfBirth" DATETIME,
+    "phoneNumber" TEXT NOT NULL,
+    "email" TEXT,
+    "address" TEXT,
+    "bloodGroup" TEXT,
+    "emergencyContact" TEXT,
+    "medicalNotes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+INSERT INTO Patient VALUES('3c11aae4-5e2f-4c31-b077-00a4d81637ed','MAG-0001','Amit Singh','male',35,NULL,'+91 9111111111','amit@email.com','12 MG Road, Mumbai','B+','Sunita Singh - +91 9111111112','No known allergies','2026-06-24T14:54:14.699+00:00','2026-06-24T14:54:14.699+00:00');
+INSERT INTO Patient VALUES('dac98828-29c7-4ae4-bbce-c07cc2321b4c','MAG-0002','Neha Gupta','female',28,NULL,'+91 9222222222','neha@email.com','45 Park Street, Delhi','O+','Ravi Gupta - +91 9222222223',NULL,'2026-06-24T14:54:14.699+00:00','2026-06-24T14:54:14.699+00:00');
+INSERT INTO Patient VALUES('f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','MAG-0003','Vikram Rao','male',52,NULL,'+91 9333333333',NULL,'78 Brigade Road, Bangalore','A+',NULL,'Hypertension, on medication','2026-06-24T14:54:14.699+00:00','2026-06-24T14:54:14.699+00:00');
+INSERT INTO Patient VALUES('32740eed-e26f-4781-8e17-023816f70b87','MAG-0004','Kavita Nair','female',41,NULL,'+91 9444444444','kavita@email.com','23 Marine Drive, Kochi','AB+',NULL,NULL,'2026-06-24T14:54:14.699+00:00','2026-06-24T14:54:14.699+00:00');
+INSERT INTO Patient VALUES('1d3fc240-592c-4f97-977e-b80132102699','MAG-0005','Rahul Joshi','male',19,NULL,'+91 9555555555',NULL,'56 FC Road, Pune','O-',NULL,NULL,'2026-06-24T14:54:14.699+00:00','2026-06-24T14:54:14.699+00:00');
+INSERT INTO Patient VALUES('6fb118fe-d4e6-40be-ad5f-82df6f10ced7','MAG-0006','Test Name','male',35,NULL,'+91 9111111111','','','a+','','','2026-06-24T14:55:23.659+00:00','2026-06-24T16:24:17.021+00:00');
+CREATE TABLE IF NOT EXISTS "Department" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+INSERT INTO Department VALUES('2327697b-fa97-4799-8c76-03ca05f195ce','Administration','Clinic administration','2026-06-24T14:54:14.677+00:00','2026-06-24T14:54:14.677+00:00');
+INSERT INTO Department VALUES('e12c0e13-6d5e-45b5-9aa2-1be0236fa43e','Medical','Doctors and nurses','2026-06-24T14:54:14.678+00:00','2026-06-24T14:54:14.678+00:00');
+INSERT INTO Department VALUES('951222ed-a9a3-4575-8da8-830fb59061ab','Pharmacy','Pharmacy staff','2026-06-24T14:54:14.678+00:00','2026-06-24T14:54:14.678+00:00');
+INSERT INTO Department VALUES('fa38c7a0-763b-4b56-8a4a-b8bebaf6dfbd','Finance','Finance and billing','2026-06-24T14:54:14.678+00:00','2026-06-24T14:54:14.678+00:00');
+CREATE TABLE IF NOT EXISTS "Doctor" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "doctorId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "specialization" TEXT NOT NULL,
+    "phone" TEXT,
+    "email" TEXT,
+    "consultationFee" REAL NOT NULL DEFAULT 500,
+    "availability" TEXT NOT NULL DEFAULT 'AVAILABLE',
+    "schedule" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+INSERT INTO Doctor VALUES('e31376be-7ef5-46ed-8c1c-d2349e4b2e1e','DOC-001','Dr. Ramesh Patel','General Physician','+91 9000000001','ramesh@magilclinic.com',500.0,'AVAILABLE',NULL,'2026-06-24T14:54:14.694+00:00','2026-06-24T14:54:14.694+00:00');
+INSERT INTO Doctor VALUES('eaf99a18-96b0-4ec3-a296-b066b1a3209b','DOC-002','Dr. Sunita Verma','Pediatrics','+91 9000000002','sunita@magilclinic.com',600.0,'AVAILABLE',NULL,'2026-06-24T14:54:14.694+00:00','2026-06-24T14:54:14.694+00:00');
+INSERT INTO Doctor VALUES('5cf272b1-ddb7-44b5-ae88-48bb728caa55','DOC-003','Dr. Arjun Mehta','Cardiology','+91 9000000003','arjun@magilclinic.com',800.0,'BUSY',NULL,'2026-06-24T14:54:14.694+00:00','2026-06-24T14:54:14.694+00:00');
+CREATE TABLE IF NOT EXISTS "DoctorLeave" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "doctorId" TEXT NOT NULL,
+    "startDate" DATETIME NOT NULL,
+    "endDate" DATETIME NOT NULL,
+    "reason" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "DoctorLeave_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "Doctor" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE IF NOT EXISTS "Consultation" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT NOT NULL,
+    "doctorId" TEXT NOT NULL,
+    "appointmentId" TEXT,
+    "diagnosis" TEXT,
+    "treatment" TEXT,
+    "notes" TEXT,
+    "followUpDate" DATETIME,
+    "fee" REAL,
+    "status" TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Consultation_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Consultation_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "Doctor" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Consultation_appointmentId_fkey" FOREIGN KEY ("appointmentId") REFERENCES "Appointment" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO Consultation VALUES('a21be917-94c3-4eb4-be20-c316b047e265','3c11aae4-5e2f-4c31-b077-00a4d81637ed','e31376be-7ef5-46ed-8c1c-d2349e4b2e1e','84381c13-7910-4414-a107-32e52a9d04ec','Viral fever','Rest, fluids, Paracetamol 500mg TDS for 3 days','Patient responded well to initial treatment',NULL,500.0,'COMPLETED','2026-06-24T14:54:14.758+00:00','2026-06-24T14:54:14.758+00:00');
+INSERT INTO Consultation VALUES('da779c52-2de2-4a1e-84cf-e46253537fc9','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','5cf272b1-ddb7-44b5-ae88-48bb728caa55',NULL,'Hypertension - Stage 1','Continue Metformin, lifestyle modifications','BP: 140/90. Advised low-salt diet.','2026-07-24T04:30:00.000+00:00',800.0,'COMPLETED','2026-06-24T14:54:14.760+00:00','2026-06-24T14:54:14.760+00:00');
+CREATE TABLE IF NOT EXISTS "Prescription" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "consultationId" TEXT NOT NULL,
+    "patientId" TEXT NOT NULL,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Prescription_consultationId_fkey" FOREIGN KEY ("consultationId") REFERENCES "Consultation" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Prescription_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO Prescription VALUES('054f4095-7ce5-4efa-9e31-2cfc95805407','a21be917-94c3-4eb4-be20-c316b047e265','3c11aae4-5e2f-4c31-b077-00a4d81637ed','Take after meals','2026-06-24T14:54:14.762+00:00','2026-06-24T14:54:14.762+00:00');
+INSERT INTO Prescription VALUES('2fea17e6-43df-4e6c-b485-5c5d09f87a34','da779c52-2de2-4a1e-84cf-e46253537fc9','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06',NULL,'2026-06-24T14:54:14.764+00:00','2026-06-24T14:54:14.764+00:00');
+CREATE TABLE IF NOT EXISTS "PrescriptionItem" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "prescriptionId" TEXT NOT NULL,
+    "medicineId" TEXT NOT NULL,
+    "dosage" TEXT NOT NULL,
+    "duration" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    CONSTRAINT "PrescriptionItem_prescriptionId_fkey" FOREIGN KEY ("prescriptionId") REFERENCES "Prescription" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "PrescriptionItem_medicineId_fkey" FOREIGN KEY ("medicineId") REFERENCES "Medicine" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO PrescriptionItem VALUES('081e4d04-6dbd-4a06-9e02-e6174a8f3f4c','054f4095-7ce5-4efa-9e31-2cfc95805407','c893c8b5-0a75-457e-8211-ba166d3b570c','500mg','3 days',9);
+INSERT INTO PrescriptionItem VALUES('960ab4ea-7866-43bd-91f1-eb93bfd6a4dc','054f4095-7ce5-4efa-9e31-2cfc95805407','38a97b97-5224-4f9e-bd22-03af5479d290','20mg','5 days',5);
+INSERT INTO PrescriptionItem VALUES('e345393f-29df-49a3-9b9b-1a131e6c3acf','2fea17e6-43df-4e6c-b485-5c5d09f87a34','b9a5aa2b-65b2-47d3-b379-7f5041481592','500mg','30 days',60);
+CREATE TABLE IF NOT EXISTS "Medicine" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "medicineId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "category" TEXT,
+    "manufacturer" TEXT,
+    "unit" TEXT NOT NULL DEFAULT 'strip',
+    "price" REAL NOT NULL,
+    "stock" INTEGER NOT NULL DEFAULT 0,
+    "minStock" INTEGER NOT NULL DEFAULT 10,
+    "expiryDate" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+INSERT INTO Medicine VALUES('c893c8b5-0a75-457e-8211-ba166d3b570c','MED-001','Paracetamol 500mg','Analgesic','Cipla','strip',25.0,5,20,'2027-06-01T00:00:00.000+00:00','2026-06-24T14:54:14.708+00:00','2026-06-24T14:54:14.708+00:00');
+INSERT INTO Medicine VALUES('6c4a08a7-a374-4a98-a801-a99363455f53','MED-002','Amoxicillin 250mg','Antibiotic','Sun Pharma','strip',80.0,8,15,'2026-12-01T00:00:00.000+00:00','2026-06-24T14:54:14.708+00:00','2026-06-24T14:54:14.708+00:00');
+INSERT INTO Medicine VALUES('3016d731-861c-45ee-a079-7e8f57cc86e4','MED-003','Cetirizine 10mg','Antihistamine','Dr. Reddy','strip',15.0,3,10,'2027-03-01T00:00:00.000+00:00','2026-06-24T14:54:14.708+00:00','2026-06-24T14:54:14.708+00:00');
+INSERT INTO Medicine VALUES('38a97b97-5224-4f9e-bd22-03af5479d290','MED-004','Omeprazole 20mg','Antacid','Torrent','strip',45.0,50,10,'2027-08-01T00:00:00.000+00:00','2026-06-24T14:54:14.708+00:00','2026-06-24T14:54:14.708+00:00');
+INSERT INTO Medicine VALUES('b9a5aa2b-65b2-47d3-b379-7f5041481592','MED-005','Metformin 500mg','Antidiabetic','USV','strip',30.0,100,20,'2027-01-01T00:00:00.000+00:00','2026-06-24T14:54:14.708+00:00','2026-06-24T14:54:14.708+00:00');
+CREATE TABLE IF NOT EXISTS "Supplier" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "phone" TEXT,
+    "email" TEXT,
+    "address" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL
+);
+INSERT INTO Supplier VALUES('4a3617cc-0fd5-4b78-9001-38beec2ea629','MedSupply India','+91 8000000001','orders@medsupply.in','Industrial Area, Mumbai','2026-06-24T14:54:14.712+00:00','2026-06-24T14:54:14.712+00:00');
+CREATE TABLE IF NOT EXISTS "StockMovement" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "medicineId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "StockMovement_medicineId_fkey" FOREIGN KEY ("medicineId") REFERENCES "Medicine" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE IF NOT EXISTS "Purchase" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "supplierId" TEXT NOT NULL,
+    "medicineId" TEXT,
+    "quantity" INTEGER NOT NULL,
+    "totalCost" REAL NOT NULL,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Purchase_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "Supplier" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO Purchase VALUES('8aa0f9fc-f71e-4feb-bbee-8fbcb357dc8a','4a3617cc-0fd5-4b78-9001-38beec2ea629','c893c8b5-0a75-457e-8211-ba166d3b570c',100,2000.0,'Monthly restock','2026-06-24T14:54:14.714+00:00');
+CREATE TABLE IF NOT EXISTS "BillItem" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "billId" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "unitPrice" REAL NOT NULL,
+    "total" REAL NOT NULL,
+    "medicineId" TEXT,
+    CONSTRAINT "BillItem_billId_fkey" FOREIGN KEY ("billId") REFERENCES "Bill" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "BillItem_medicineId_fkey" FOREIGN KEY ("medicineId") REFERENCES "Medicine" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO BillItem VALUES('6ff8929a-c02e-4901-9434-ea5360b0da46','f98e5a53-9d2f-4f92-90d4-483f01328412','General consultation',1,500.0,500.0,NULL);
+INSERT INTO BillItem VALUES('a99bbc8d-1a37-48cf-828c-4c695debd7a7','e2cd5e42-6907-40e7-b999-f98255ed4ff2','Medicine dispensed',2,160.0,320.0,NULL);
+INSERT INTO BillItem VALUES('e192e35b-0ae5-45b1-bfcf-bca13f5bb16d','0d642172-0a90-4214-b595-04496ad7611b','Cardiology consultation',1,800.0,800.0,NULL);
+CREATE TABLE IF NOT EXISTS "Expense" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "category" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "amount" REAL NOT NULL,
+    "date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO Expense VALUES('a7d06c0b-d468-4970-ae2b-88d17225aee6','Utilities','Electricity bill - March',15000.0,'2026-06-24T14:54:14.741+00:00','2026-06-24T14:54:14.742+00:00');
+INSERT INTO Expense VALUES('93deb46a-abf5-4987-9699-7f75ceed0765','Supplies','Medical supplies',8500.0,'2026-06-24T14:54:14.741+00:00','2026-06-24T14:54:14.742+00:00');
+INSERT INTO Expense VALUES('1cce2104-4396-483b-9021-902f280632f5','Maintenance','AC servicing',3000.0,'2026-06-24T14:54:14.741+00:00','2026-06-24T14:54:14.742+00:00');
+CREATE TABLE IF NOT EXISTS "Income" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "source" TEXT NOT NULL,
+    "description" TEXT,
+    "amount" REAL NOT NULL,
+    "date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO Income VALUES('bbc57263-5a0f-41eb-9f64-89fc96d3830a','Consultations','Daily consultation fees',25000.0,'2026-06-24T14:54:14.742+00:00','2026-06-24T14:54:14.743+00:00');
+INSERT INTO Income VALUES('6845ee66-adaa-4ad8-878c-ef80e207fa90','Pharmacy','Medicine sales',12000.0,'2026-06-24T14:54:14.742+00:00','2026-06-24T14:54:14.743+00:00');
+CREATE TABLE IF NOT EXISTS "FollowUp" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "scheduledAt" DATETIME NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "FollowUp_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO FollowUp VALUES('b9fc85d3-a0f0-4f9e-8745-35be37ea8566','3c11aae4-5e2f-4c31-b077-00a4d81637ed','APPOINTMENT','2026-06-25T04:30:00.000+00:00','PENDING','Blood test follow-up','2026-06-24T14:54:14.750+00:00','2026-06-24T14:54:14.750+00:00');
+INSERT INTO FollowUp VALUES('d56063d4-9702-44b4-81f4-edb74253011a','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','MEDICINE','2026-07-01T04:30:00.000+00:00','PENDING','Medicine refill reminder','2026-06-24T14:54:14.750+00:00','2026-06-24T14:54:14.750+00:00');
+INSERT INTO FollowUp VALUES('8abaee15-26d2-4855-a12f-a3a54eef41a9','32740eed-e26f-4781-8e17-023816f70b87','GENERAL','2026-06-27T04:30:00.000+00:00','PENDING','Post-treatment check','2026-06-24T14:54:14.750+00:00','2026-06-24T14:54:14.750+00:00');
+CREATE TABLE IF NOT EXISTS "Reminder" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT,
+    "type" TEXT NOT NULL,
+    "channel" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "sendAt" DATETIME NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'SCHEDULED',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Reminder_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO Reminder VALUES('667f349e-56e0-42c1-8eb1-0a510f972c2c','3c11aae4-5e2f-4c31-b077-00a4d81637ed','APPOINTMENT','SMS','Reminder: Your appointment is tomorrow at 10 AM','2026-06-25T04:30:00.000+00:00','SCHEDULED','2026-06-24T14:54:14.753+00:00');
+INSERT INTO Reminder VALUES('66713024-3373-4b49-aadf-d12895c24438','dac98828-29c7-4ae4-bbce-c07cc2321b4c','FOLLOW_UP','WHATSAPP','Follow-up reminder for vaccination','2026-06-25T04:30:00.000+00:00','SCHEDULED','2026-06-24T14:54:14.753+00:00');
+INSERT INTO Reminder VALUES('0d660317-d97f-4ace-a2db-e5af7f2cfd8a','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','MEDICINE','EMAIL','Time to refill your blood pressure medication','2026-06-29T04:30:00.000+00:00','SCHEDULED','2026-06-24T14:54:14.753+00:00');
+INSERT INTO Reminder VALUES('124d4e20-2c36-4c2d-bed1-3b59d27ea1d5','3c11aae4-5e2f-4c31-b077-00a4d81637ed','APPOINTMENT','WHATSAPP','Hi Amit Singh, your phone appointment with Dr. Dr. Ramesh Patel is confirmed for 24 Jun 2026 at 05:00 pm. Token: Token 1. Please be available on your phone.','2026-06-25T03:01:20.254+00:00','SENT','2026-06-25T03:01:20.279+00:00');
+CREATE TABLE IF NOT EXISTS "PatientDocument" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "url" TEXT,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "fileData" TEXT, "mimeType" TEXT, "recordDate" DATETIME,
+    CONSTRAINT "PatientDocument_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO PatientDocument VALUES('a55323a4-68a6-4186-a360-d86531a41c83','3c11aae4-5e2f-4c31-b077-00a4d81637ed','Blood Test Report','LAB_REPORT',NULL,'CBC - Normal','2026-06-24T14:54:14.756+00:00',NULL,NULL,NULL);
+INSERT INTO PatientDocument VALUES('f609189b-e759-4847-83f6-601e5333ee17','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','ECG Scan','SCAN',NULL,'Routine cardiac scan','2026-06-24T14:54:14.756+00:00',NULL,NULL,NULL);
+CREATE TABLE IF NOT EXISTS "User" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "role" TEXT NOT NULL,
+    "phone" TEXT,
+    "departmentId" TEXT,
+    "salary" REAL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL, "googleId" TEXT,
+    CONSTRAINT "User_departmentId_fkey" FOREIGN KEY ("departmentId") REFERENCES "Department" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO User VALUES('1cda4659-9b84-49f4-99fe-32be52b5583c','admin@magilclinic.com','$2b$10$Jv38N/l8IkJJGuuOEHi69e9EZfo/dLd4gHiLEm1xK5idlWm5vMYOa','Dr. Admin','DOCTOR_ADMIN','+91 9876543210','2327697b-fa97-4799-8c76-03ca05f195ce',150000.0,'2026-06-24T14:54:14.691+00:00','2026-06-24T14:54:14.691+00:00',NULL);
+INSERT INTO User VALUES('463708e3-2e73-4db9-9d1b-cd205d3c5792','nurse@magilclinic.com','$2b$10$Jv38N/l8IkJJGuuOEHi69e9EZfo/dLd4gHiLEm1xK5idlWm5vMYOa','Priya Sharma','NURSE_RECEPTIONIST','+91 9876543211','e12c0e13-6d5e-45b5-9aa2-1be0236fa43e',45000.0,'2026-06-24T14:54:14.691+00:00','2026-06-24T14:54:14.691+00:00',NULL);
+INSERT INTO User VALUES('b492c629-15b9-4056-8551-99df08581f0b','pharmacist@magilclinic.com','$2b$10$Jv38N/l8IkJJGuuOEHi69e9EZfo/dLd4gHiLEm1xK5idlWm5vMYOa','Raj Kumar','PHARMACIST','+91 9876543212','951222ed-a9a3-4575-8da8-830fb59061ab',50000.0,'2026-06-24T14:54:14.691+00:00','2026-06-24T14:54:14.691+00:00',NULL);
+INSERT INTO User VALUES('82e652bf-54e9-4149-9f69-c0d46d6f9c44','finance@magilclinic.com','$2b$10$Jv38N/l8IkJJGuuOEHi69e9EZfo/dLd4gHiLEm1xK5idlWm5vMYOa','Anita Desai','FINANCE_MANAGER','+91 9876543213','fa38c7a0-763b-4b56-8a4a-b8bebaf6dfbd',60000.0,'2026-06-24T14:54:14.691+00:00','2026-06-24T14:54:14.691+00:00',NULL);
+CREATE TABLE IF NOT EXISTS "Appointment" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT NOT NULL,
+    "doctorId" TEXT,
+    "appointmentDate" DATETIME NOT NULL,
+    "appointmentType" TEXT NOT NULL DEFAULT 'PHONE',
+    "status" TEXT NOT NULL DEFAULT 'SCHEDULED',
+    "reason" TEXT,
+    "tokenNumber" INTEGER,
+    "tokenLabel" TEXT,
+    "scheduledSlotStart" DATETIME,
+    "scheduledSlotEnd" DATETIME,
+    "actualStartTime" DATETIME,
+    "actualEndTime" DATETIME,
+    "bookedById" TEXT,
+    "isWalkIn" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Appointment_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Appointment_doctorId_fkey" FOREIGN KEY ("doctorId") REFERENCES "Doctor" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO Appointment VALUES('84381c13-7910-4414-a107-32e52a9d04ec','3c11aae4-5e2f-4c31-b077-00a4d81637ed','e31376be-7ef5-46ed-8c1c-d2349e4b2e1e','2026-06-24T04:30:00.000+00:00','PHONE','SCHEDULED','General checkup',1,'Token 1','2026-06-24T11:30:00.000Z','2026-06-24T11:45:00.000Z',NULL,NULL,NULL,0,'2026-06-24T14:54:14.706+00:00','2026-06-24T14:54:14.706+00:00');
+INSERT INTO Appointment VALUES('f3b2d358-0f25-432b-bc05-481f5e104720','dac98828-29c7-4ae4-bbce-c07cc2321b4c','eaf99a18-96b0-4ec3-a296-b066b1a3209b','2026-06-24T05:30:00.000+00:00','PHONE','SCHEDULED','Child vaccination',2,'Token 2','2026-06-24T11:45:00.000Z','2026-06-24T12:00:00.000Z',NULL,NULL,NULL,0,'2026-06-24T14:54:14.706+00:00','2026-06-24T14:54:14.706+00:00');
+INSERT INTO Appointment VALUES('99612a0e-e2da-4086-b345-aa2d28786f00','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','5cf272b1-ddb7-44b5-ae88-48bb728caa55','2026-06-24T06:30:00.000+00:00','PHONE','SCHEDULED','Cardiac review',3,'Token 3',NULL,NULL,NULL,NULL,NULL,0,'2026-06-24T14:54:14.706+00:00','2026-06-24T14:54:14.706+00:00');
+INSERT INTO Appointment VALUES('bef7ae38-ff45-4118-8a77-d4c79755f991','32740eed-e26f-4781-8e17-023816f70b87','e31376be-7ef5-46ed-8c1c-d2349e4b2e1e','2026-06-24T04:30:00.000+00:00','WALK_IN','SCHEDULED','Fever',4,'Walk-in 1',NULL,NULL,NULL,NULL,NULL,1,'2026-06-24T14:54:14.706+00:00','2026-06-24T14:54:14.706+00:00');
+INSERT INTO Appointment VALUES('38125e0b-9064-4d4e-ae62-71c2e1072fdf','1d3fc240-592c-4f97-977e-b80132102699','eaf99a18-96b0-4ec3-a296-b066b1a3209b','2026-06-25T04:30:00.000+00:00','PHONE','SCHEDULED','Follow-up',1,'Token 5','2026-06-25T11:30:00.000Z','2026-06-25T11:45:00.000Z',NULL,NULL,NULL,0,'2026-06-24T14:54:14.706+00:00','2026-06-24T14:54:14.706+00:00');
+CREATE TABLE IF NOT EXISTS "PharmacySale" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "patientId" TEXT,
+    "prescriptionId" TEXT,
+    "medicineId" TEXT NOT NULL,
+    "quantity" INTEGER NOT NULL,
+    "total" REAL NOT NULL,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PharmacySale_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "PharmacySale_prescriptionId_fkey" FOREIGN KEY ("prescriptionId") REFERENCES "Prescription" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "PharmacySale_medicineId_fkey" FOREIGN KEY ("medicineId") REFERENCES "Medicine" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+CREATE TABLE IF NOT EXISTS "Task" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'TODO',
+    "priority" TEXT NOT NULL DEFAULT 'MEDIUM',
+    "assigneeId" TEXT,
+    "assigneeEmail" TEXT,
+    "createdById" TEXT,
+    "dueDate" DATETIME,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Task_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT "Task_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+CREATE TABLE IF NOT EXISTS "Bill" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "billNumber" TEXT NOT NULL,
+    "patientId" TEXT,
+    "type" TEXT NOT NULL,
+    "subtotal" REAL NOT NULL,
+    "gstEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "gstRate" REAL NOT NULL DEFAULT 18,
+    "gstAmount" REAL NOT NULL DEFAULT 0,
+    "total" REAL NOT NULL,
+    "paidAmount" REAL NOT NULL DEFAULT 0,
+    "paymentStatus" TEXT NOT NULL DEFAULT 'PENDING',
+    "paymentMethod" TEXT,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Bill_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+INSERT INTO Bill VALUES('f98e5a53-9d2f-4f92-90d4-483f01328412','INV-2026-001','3c11aae4-5e2f-4c31-b077-00a4d81637ed','CONSULTATION',500.0,1,18.0,90.0,590.0,590.0,'PAID','CASH',NULL,'2026-06-24T14:54:14.737+00:00','2026-06-24T14:54:14.737+00:00');
+INSERT INTO Bill VALUES('e2cd5e42-6907-40e7-b999-f98255ed4ff2','INV-2026-002','dac98828-29c7-4ae4-bbce-c07cc2321b4c','PHARMACY',320.0,1,18.0,57.60000000000000142,377.6000000000000227,377.6000000000000227,'PAID','UPI',NULL,'2026-06-24T14:54:14.739+00:00','2026-06-24T14:54:14.739+00:00');
+INSERT INTO Bill VALUES('0d642172-0a90-4214-b595-04496ad7611b','INV-2026-003','f3e1251e-80eb-45bd-8bf8-e42d5c2d4a06','CONSULTATION',800.0,1,18.0,144.0,944.0,500.0,'PARTIAL','CARD',NULL,'2026-06-24T14:54:14.740+00:00','2026-06-24T14:54:14.740+00:00');
+CREATE TABLE IF NOT EXISTS "ClinicSettings" (
+    "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'default',
+    "clinicName" TEXT NOT NULL DEFAULT 'Magil Clinic',
+    "primaryColor" TEXT NOT NULL DEFAULT '#0F4C81',
+    "secondaryColor" TEXT NOT NULL DEFAULT '#4CAF50',
+    "fontFamily" TEXT NOT NULL DEFAULT 'Inter',
+    "consultStartHour" INTEGER NOT NULL DEFAULT 17,
+    "consultEndHour" INTEGER NOT NULL DEFAULT 21,
+    "slotMinutes" INTEGER NOT NULL DEFAULT 15,
+    "gstEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "gstRate" REAL NOT NULL DEFAULT 18,
+    "integrations" TEXT NOT NULL DEFAULT '{}',
+    "automation" TEXT NOT NULL DEFAULT '{}',
+    "updatedAt" DATETIME NOT NULL
+);
+INSERT INTO ClinicSettings VALUES('default','Magil Clinic','#0F4C81','#4CAF50','Inter',17,21,20,1,18.0,'{}','{}','2026-06-24T15:44:04.142+00:00');
+CREATE TABLE IF NOT EXISTS "Attendance" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "date" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "checkIn" DATETIME,
+    "checkOut" DATETIME,
+    "status" TEXT NOT NULL DEFAULT 'PRESENT',
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Attendance_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO Attendance VALUES('7501f878-1324-434a-8bee-d288ab3acfc8','1cda4659-9b84-49f4-99fe-32be52b5583c','2026-06-25T00:00:00.000+00:00','2026-06-25T03:30:00.000+00:00','2026-06-25T12:30:00.000+00:00','PRESENT',NULL,'2026-06-25T03:26:35.052+00:00','2026-06-25T03:26:35.052+00:00');
+INSERT INTO Attendance VALUES('29e93c49-59f7-445e-97c4-819799ec6ba4','463708e3-2e73-4db9-9d1b-cd205d3c5792','2026-06-25T00:00:00.000+00:00','2026-06-25T03:30:00.000+00:00','2026-06-25T12:30:00.000+00:00','PRESENT',NULL,'2026-06-25T03:26:35.054+00:00','2026-06-25T03:26:35.054+00:00');
+INSERT INTO Attendance VALUES('78b02636-4a98-4676-a671-c2b9ac2e63e0','b492c629-15b9-4056-8551-99df08581f0b','2026-06-25T00:00:00.000+00:00','2026-06-25T03:30:00.000+00:00','2026-06-25T12:30:00.000+00:00','PRESENT',NULL,'2026-06-25T03:26:35.054+00:00','2026-06-25T03:26:35.054+00:00');
+INSERT INTO Attendance VALUES('5a96f881-3c1e-4dc9-9199-f19153686746','82e652bf-54e9-4149-9f69-c0d46d6f9c44','2026-06-25T00:00:00.000+00:00',NULL,NULL,'ABSENT','Sick','2026-06-25T03:26:35.055+00:00','2026-06-25T03:27:29.297+00:00');
+CREATE TABLE IF NOT EXISTS "Payroll" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "userId" TEXT NOT NULL,
+    "month" TEXT NOT NULL,
+    "year" INTEGER NOT NULL,
+    "baseSalary" REAL NOT NULL,
+    "daysPresent" INTEGER NOT NULL DEFAULT 0,
+    "halfDays" INTEGER NOT NULL DEFAULT 0,
+    "absentDays" INTEGER NOT NULL DEFAULT 0,
+    "deductions" REAL NOT NULL DEFAULT 0,
+    "bonuses" REAL NOT NULL DEFAULT 0,
+    "netSalary" REAL NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "processedAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Payroll_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+INSERT INTO Payroll VALUES('6b548d6b-dac7-41ef-9d0e-9dfe1c1968e0','1cda4659-9b84-49f4-99fe-32be52b5583c','June',2026,150000.0,1,0,0,145000.0,0.0,5000.0,'PROCESSED','2026-06-25T03:27:29.311+00:00','2026-06-24T14:54:14.749+00:00');
+INSERT INTO Payroll VALUES('ec938ac0-1a1e-4f76-a208-6a54358be720','463708e3-2e73-4db9-9d1b-cd205d3c5792','June',2026,45000.0,1,0,0,43500.0,0.0,1500.0,'PROCESSED','2026-06-25T03:27:29.311+00:00','2026-06-24T14:54:14.749+00:00');
+INSERT INTO Payroll VALUES('e75b4d1e-d323-4ddd-aca7-a73dc7cb2c29','b492c629-15b9-4056-8551-99df08581f0b','June',2026,50000.0,1,0,0,48333.33333333333576,0.0,1666.666666666666743,'PROCESSED','2026-06-25T03:27:29.311+00:00','2026-06-24T14:54:14.749+00:00');
+INSERT INTO Payroll VALUES('7952ec0c-b769-4fdb-ba6e-065d303d3a61','82e652bf-54e9-4149-9f69-c0d46d6f9c44','June',2026,60000.0,0,0,1,60000.0,0.0,0.0,'PROCESSED','2026-06-25T03:27:29.311+00:00','2026-06-24T14:54:14.749+00:00');
+CREATE UNIQUE INDEX "Patient_patientId_key" ON "Patient"("patientId");
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "Department_name_key" ON "Department"("name");
+CREATE UNIQUE INDEX "Doctor_doctorId_key" ON "Doctor"("doctorId");
+CREATE UNIQUE INDEX "Consultation_appointmentId_key" ON "Consultation"("appointmentId");
+CREATE UNIQUE INDEX "Prescription_consultationId_key" ON "Prescription"("consultationId");
+CREATE UNIQUE INDEX "Medicine_medicineId_key" ON "Medicine"("medicineId");
+CREATE UNIQUE INDEX "Bill_billNumber_key" ON "Bill"("billNumber");
+CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
+CREATE UNIQUE INDEX "Attendance_userId_date_key" ON "Attendance"("userId", "date");

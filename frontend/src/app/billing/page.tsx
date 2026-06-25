@@ -641,9 +641,19 @@ function BillingContent() {
       </Tabs>
 
       <Dialog open={!!viewBill} onOpenChange={(o) => !o && setViewBill(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Invoice</DialogTitle></DialogHeader>
-          <div className="px-5 pb-5">
+        <DialogContent className="max-h-[90vh] w-[calc(100%-1rem)] max-w-3xl overflow-x-hidden overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              Invoice
+            </DialogTitle>
+            {viewBill && (
+              <DialogDescription>
+                {viewBill.billNumber} · {formatDate(viewBill.createdAt)}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          <div className="min-w-0 overflow-x-hidden px-5 pb-5">
             {viewBill && <InvoiceView bill={viewBill} onClose={() => setViewBill(null)} />}
           </div>
         </DialogContent>

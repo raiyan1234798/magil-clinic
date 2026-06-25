@@ -168,7 +168,55 @@
 }
 
 @media print {
-  body * { visibility: hidden; }
-  .invoice-print, .invoice-print * { visibility: visible; }
-  .invoice-print { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #invoice-print-area,
+  #invoice-print-area * {
+    visibility: visible !important;
+  }
+
+  #invoice-print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 99999 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 20px !important;
+    margin: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  [data-slot="dialog-overlay"],
+  [data-slot="sidebar"],
+  aside,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  [data-slot="dialog-content"] {
+    position: static !important;
+    transform: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
 }

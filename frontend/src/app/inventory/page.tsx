@@ -5,11 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, ArrowDown, ArrowUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch, formatDate, formatCurrency } from "@/lib/api";
@@ -74,24 +74,31 @@ export default function InventoryPage() {
           <Dialog open={stockOpen} onOpenChange={setStockOpen}>
             <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Stock Movement</Button>} />
             <DialogContent>
-              <DialogHeader><DialogTitle>Stock In / Out</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Stock In / Out</DialogTitle>
+                <DialogDescription>Record inventory movements for medicines.</DialogDescription>
+              </DialogHeader>
               <form onSubmit={handleStock} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Medicine</Label>
-                  <Select value={stockForm.medicineId} onValueChange={(v) => setStockForm({ ...stockForm, medicineId: v ?? "" })}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select medicine" /></SelectTrigger>
-                    <SelectContent>{medicines.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={stockForm.medicineId}
+                    onValueChange={(v) => setStockForm({ ...stockForm, medicineId: v })}
+                    items={medicines.map((m) => ({ value: m.id, label: m.name }))}
+                    placeholder="Select medicine"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={stockForm.type} onValueChange={(v) => setStockForm({ ...stockForm, type: v ?? "STOCK_IN" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="STOCK_IN">Stock In</SelectItem>
-                      <SelectItem value="STOCK_OUT">Stock Out</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={stockForm.type}
+                    onValueChange={(v) => setStockForm({ ...stockForm, type: v || "STOCK_IN" })}
+                    items={[
+                      { value: "STOCK_IN", label: "Stock In" },
+                      { value: "STOCK_OUT", label: "Stock Out" },
+                    ]}
+                    placeholder="Select type"
+                  />
                 </div>
                 <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={stockForm.quantity} onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Notes</Label><Input value={stockForm.notes} onChange={(e) => setStockForm({ ...stockForm, notes: e.target.value })} /></div>

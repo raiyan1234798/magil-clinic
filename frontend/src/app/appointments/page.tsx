@@ -5,14 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PatientCombobox } from "@/components/PatientCombobox";
 import { WhatsAppSendMenu } from "@/components/WhatsAppSendMenu";
-import { Plus, Calendar, Phone, UserRound } from "lucide-react";
+import { Plus, Calendar } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch, formatDate, formatTime, openAppointmentWhatsApp, STATUS_COLORS, showApiError } from "@/lib/api";
 import { getUser } from "@/lib/auth";
@@ -114,13 +114,15 @@ export default function AppointmentsPage() {
             <form onSubmit={handleBook} className="space-y-4 px-5 py-4">
               <div className="space-y-2">
                 <Label>Appointment Type *</Label>
-                <Select value={form.appointmentType} onValueChange={(v) => setForm({ ...form, appointmentType: (v as "PHONE" | "WALK_IN") ?? "PHONE" })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PHONE"><span className="flex items-center gap-2"><Phone className="h-3 w-3" /> Phone Booking</span></SelectItem>
-                    <SelectItem value="WALK_IN"><span className="flex items-center gap-2"><UserRound className="h-3 w-3" /> Walk-in</span></SelectItem>
-                  </SelectContent>
-                </Select>
+                <LabeledSelect
+                  value={form.appointmentType}
+                  onValueChange={(v) => setForm({ ...form, appointmentType: (v as "PHONE" | "WALK_IN") || "PHONE" })}
+                  items={[
+                    { value: "PHONE", label: "Phone Booking" },
+                    { value: "WALK_IN", label: "Walk-in" },
+                  ]}
+                  placeholder="Select type"
+                />
               </div>
               <PatientCombobox
                 value={form.patientId}
@@ -130,12 +132,12 @@ export default function AppointmentsPage() {
               />
               <div className="space-y-2">
                 <Label>Doctor *</Label>
-                <Select value={form.doctorId} onValueChange={(v) => setForm({ ...form, doctorId: v ?? "" })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select doctor" /></SelectTrigger>
-                  <SelectContent>
-                    {doctors.map((d) => <SelectItem key={d.id} value={d.id}>{d.name} — {d.specialization}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <LabeledSelect
+                  value={form.doctorId}
+                  onValueChange={(v) => setForm({ ...form, doctorId: v })}
+                  items={doctors.map((d) => ({ value: d.id, label: `${d.name} — ${d.specialization}` }))}
+                  placeholder="Select doctor"
+                />
               </div>
               {form.appointmentType === "PHONE" && (
                 <div className="space-y-2">

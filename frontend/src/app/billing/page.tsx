@@ -10,7 +10,7 @@ import { PatientCombobox } from "@/components/PatientCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -335,14 +335,16 @@ function BillingContent() {
 
                 <div className="space-y-2">
                   <Label>Invoice Type</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v ?? "CONSULTATION" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CONSULTATION">Consultation</SelectItem>
-                      <SelectItem value="PHARMACY">Pharmacy</SelectItem>
-                      <SelectItem value="SERVICE">Service</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={form.type}
+                    onValueChange={(v) => setForm({ ...form, type: v || "CONSULTATION" })}
+                    items={[
+                      { value: "CONSULTATION", label: "Consultation" },
+                      { value: "PHARMACY", label: "Pharmacy" },
+                      { value: "SERVICE", label: "Service" },
+                    ]}
+                    placeholder="Select type"
+                  />
                 </div>
 
                 {form.type === "PHARMACY" ? (
@@ -369,16 +371,16 @@ function BillingContent() {
                             </div>
                             <div className="space-y-2">
                               <Label className="text-xs">Medicine</Label>
-                              <Select value={line.medicineId} onValueChange={(v) => updatePharmacyLine(line.key, { medicineId: v ?? "" })}>
-                                <SelectTrigger className="w-full"><SelectValue placeholder="Search & select medicine" /></SelectTrigger>
-                                <SelectContent>
-                                  {medicines.map((m) => (
-                                    <SelectItem key={m.id} value={m.id} disabled={m.stock <= 0}>
-                                      {m.name} — {formatCurrency(m.price)} (Stock: {m.stock})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              <LabeledSelect
+                                value={line.medicineId}
+                                onValueChange={(v) => updatePharmacyLine(line.key, { medicineId: v })}
+                                items={medicines.map((m) => ({
+                                  value: m.id,
+                                  label: `${m.name} — ${formatCurrency(m.price)} (Stock: ${m.stock})`,
+                                  disabled: m.stock <= 0,
+                                }))}
+                                placeholder="Search & select medicine"
+                              />
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                               <div className="space-y-2">
@@ -477,14 +479,16 @@ function BillingContent() {
 
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
-                  <Select value={form.paymentMethod} onValueChange={(v) => setForm({ ...form, paymentMethod: v ?? "CASH" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CASH">Cash</SelectItem>
-                      <SelectItem value="UPI">UPI</SelectItem>
-                      <SelectItem value="CARD">Card</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={form.paymentMethod}
+                    onValueChange={(v) => setForm({ ...form, paymentMethod: v || "CASH" })}
+                    items={[
+                      { value: "CASH", label: "Cash" },
+                      { value: "UPI", label: "UPI" },
+                      { value: "CARD", label: "Card" },
+                    ]}
+                    placeholder="Select payment method"
+                  />
                 </div>
                 <DialogFooter className="px-0 pb-0">
                   <Button type="submit" className="w-full">Generate Invoice</Button>

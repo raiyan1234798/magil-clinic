@@ -18,7 +18,7 @@ import { apiFetch, formatDate, formatCurrency, formatTime, STATUS_COLORS } from 
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 
 const TIMELINE_ICONS: Record<string, React.ReactNode> = {
   REGISTRATION: <User className="h-4 w-4" />,
@@ -303,15 +303,18 @@ export default function PatientDetail() {
             <CardContent className="p-4 flex flex-wrap items-end gap-4">
               <div className="space-y-2">
                 <Label>Document Type</Label>
-                <Select value={uploadType} onValueChange={(v) => setUploadType(v ?? "LAB_REPORT")}>
-                  <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LAB_REPORT">Lab Report</SelectItem>
-                    <SelectItem value="SCAN">Scan</SelectItem>
-                    <SelectItem value="PRESCRIPTION">Prescription</SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <LabeledSelect
+                  value={uploadType}
+                  onValueChange={(v) => setUploadType(v || "LAB_REPORT")}
+                  items={[
+                    { value: "LAB_REPORT", label: "Lab Report" },
+                    { value: "SCAN", label: "Scan" },
+                    { value: "PRESCRIPTION", label: "Prescription" },
+                    { value: "OTHER", label: "Other" },
+                  ]}
+                  placeholder="Select type"
+                  triggerClassName="w-40"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Record Date (historical)</Label>

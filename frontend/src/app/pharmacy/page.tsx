@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { PatientCombobox } from "@/components/PatientCombobox";
@@ -71,10 +71,15 @@ export default function PharmacyPage() {
                 />
                 <div className="space-y-2">
                   <Label>Medicine</Label>
-                  <Select value={dispense.medicineId} onValueChange={(v) => setDispense({ ...dispense, medicineId: v ?? "" })}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select medicine" /></SelectTrigger>
-                    <SelectContent>{medicines.map((m) => <SelectItem key={m.id} value={m.id}>{m.name} (Stock: {m.stock})</SelectItem>)}</SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={dispense.medicineId}
+                    onValueChange={(v) => setDispense({ ...dispense, medicineId: v })}
+                    items={medicines.map((m) => ({
+                      value: m.id,
+                      label: `${m.name} (Stock: ${m.stock})`,
+                    }))}
+                    placeholder="Select medicine"
+                  />
                 </div>
                 <div className="space-y-2"><Label>Quantity</Label><Input type="number" value={dispense.quantity} onChange={(e) => setDispense({ ...dispense, quantity: e.target.value })} min="1" /></div>
                 <Button type="submit" className="w-full" disabled={!dispense.patientId}>Dispense & Update Inventory</Button>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
@@ -201,20 +201,12 @@ export default function NewPatient() {
                 </div>
                 <div className="space-y-2">
                   <Label>Gender *</Label>
-                  <Select value={gender} onValueChange={(v) => setGender(v ?? "")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Gender">
-                        {GENDER_OPTIONS.find((g) => g.value === gender)?.label || "Select Gender"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {GENDER_OPTIONS.map((g) => (
-                        <SelectItem key={g.value} value={g.value}>
-                          {g.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={gender}
+                    onValueChange={setGender}
+                    items={GENDER_OPTIONS.map((g) => ({ value: g.value, label: g.label }))}
+                    placeholder="Select Gender"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dob">Date of Birth</Label>
@@ -234,20 +226,12 @@ export default function NewPatient() {
                 </div>
                 <div className="space-y-2">
                   <Label>Blood Group</Label>
-                  <Select value={bloodGroup} onValueChange={(v) => setBloodGroup(v ?? "")}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Blood Group">
-                        {bloodGroup ? bloodGroup.toUpperCase() : "Select Blood Group"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BLOOD_GROUPS.map((bg) => (
-                        <SelectItem key={bg} value={bg}>
-                          {bg.toUpperCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={bloodGroup}
+                    onValueChange={setBloodGroup}
+                    items={BLOOD_GROUPS.map((bg) => ({ value: bg, label: bg.toUpperCase() }))}
+                    placeholder="Select Blood Group"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="emergencyContact">Emergency Contact</Label>

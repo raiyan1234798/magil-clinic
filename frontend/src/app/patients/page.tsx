@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
+import { PatientCombobox } from "@/components/PatientCombobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Search, Plus, Eye, Pencil, Users, HeartHandshake } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, Suspense } from "react";
@@ -75,25 +76,29 @@ function PatientsContent() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button variant="outline" className="gap-2"><HeartHandshake className="h-4 w-4" /> Follow-up</Button>} />
             <DialogContent>
-              <DialogHeader><DialogTitle>Schedule Follow-up</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Schedule Follow-up</DialogTitle>
+                <DialogDescription>Schedule an appointment, medicine, or general follow-up for a patient.</DialogDescription>
+              </DialogHeader>
               <form onSubmit={handleCreateFollowUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Patient</Label>
-                  <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v ?? "" })}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                    <SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
+                <PatientCombobox
+                  value={form.patientId}
+                  onChange={(id) => setForm({ ...form, patientId: id })}
+                  returnUrl="/patients"
+                  required
+                />
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v ?? "APPOINTMENT" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="APPOINTMENT">Appointment</SelectItem>
-                      <SelectItem value="MEDICINE">Medicine</SelectItem>
-                      <SelectItem value="GENERAL">General</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={form.type}
+                    onValueChange={(v) => setForm({ ...form, type: v || "APPOINTMENT" })}
+                    items={[
+                      { value: "APPOINTMENT", label: "Appointment" },
+                      { value: "MEDICINE", label: "Medicine" },
+                      { value: "GENERAL", label: "General" },
+                    ]}
+                    placeholder="Select type"
+                  />
                 </div>
                 <div className="space-y-2"><Label>Scheduled Date</Label><Input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { PatientCombobox } from "@/components/PatientCombobox";
@@ -46,15 +46,20 @@ export default function ConsultationsPage() {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> New Consultation</Button>} />
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Record Consultation</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Record Consultation</DialogTitle>
+              <DialogDescription>Log diagnosis, treatment plan, and fees for a patient visit.</DialogDescription>
+            </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4 px-5 py-4">
               <PatientCombobox value={form.patientId} onChange={(id) => setForm({ ...form, patientId: id })} returnUrl="/consultations" required />
               <div className="space-y-2">
                 <Label>Doctor</Label>
-                <Select value={form.doctorId} onValueChange={(v) => setForm({ ...form, doctorId: v ?? "" })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select doctor" /></SelectTrigger>
-                  <SelectContent>{doctors.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <LabeledSelect
+                  value={form.doctorId}
+                  onValueChange={(v) => setForm({ ...form, doctorId: v })}
+                  items={doctors.map((d) => ({ value: d.id, label: d.name }))}
+                  placeholder="Select doctor"
+                />
               </div>
               <div className="space-y-2"><Label>Diagnosis</Label><Input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} /></div>
               <div className="space-y-2"><Label>Treatment Plan</Label><Textarea value={form.treatment} onChange={(e) => setForm({ ...form, treatment: e.target.value })} /></div>

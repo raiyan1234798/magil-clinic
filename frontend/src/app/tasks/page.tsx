@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { LabeledSelect } from "@/components/LabeledSelect";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, GripVertical, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -136,21 +136,25 @@ export default function TasksPage() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           {superAdmin && (
-            <Select value={filterEmail || "__all__"} onValueChange={(v) => setFilterEmail(v === "__all__" ? "" : v ?? "")}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="All assignees" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">All assignees</SelectItem>
-                {employees.map((emp) => (
-                  <SelectItem key={emp.id} value={emp.email}>{emp.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <LabeledSelect
+              value={filterEmail || "__all__"}
+              onValueChange={(v) => setFilterEmail(v === "__all__" ? "" : v)}
+              items={[
+                { value: "__all__", label: "All assignees" },
+                ...employees.map((emp) => ({ value: emp.email, label: emp.name })),
+              ]}
+              placeholder="All assignees"
+              triggerClassName="w-[200px]"
+            />
           )}
           {superAdmin && (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> New Task</Button>} />
               <DialogContent>
-                <DialogHeader><DialogTitle>Create Task</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Create Task</DialogTitle>
+                  <DialogDescription>Assign a task to a team member with priority and due date.</DialogDescription>
+                </DialogHeader>
                 <form onSubmit={handleCreate} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Title</Label>
@@ -163,15 +167,17 @@ export default function TasksPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Priority</Label>
-                      <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v ?? "MEDIUM" })}>
-                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="LOW">Low</SelectItem>
-                          <SelectItem value="MEDIUM">Medium</SelectItem>
-                          <SelectItem value="HIGH">High</SelectItem>
-                          <SelectItem value="URGENT">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <LabeledSelect
+                        value={form.priority}
+                        onValueChange={(v) => setForm({ ...form, priority: v || "MEDIUM" })}
+                        items={[
+                          { value: "LOW", label: "Low" },
+                          { value: "MEDIUM", label: "Medium" },
+                          { value: "HIGH", label: "High" },
+                          { value: "URGENT", label: "Urgent" },
+                        ]}
+                        placeholder="Select priority"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Due Date</Label>
@@ -180,15 +186,15 @@ export default function TasksPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Assignee</Label>
-                    <Select value={form.assigneeEmail || "__none__"} onValueChange={(v) => setForm({ ...form, assigneeEmail: v === "__none__" ? "" : v ?? "" })}>
-                      <SelectTrigger className="w-full"><SelectValue placeholder="Select employee" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Unassigned</SelectItem>
-                        {employees.map((emp) => (
-                          <SelectItem key={emp.id} value={emp.email}>{emp.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <LabeledSelect
+                      value={form.assigneeEmail || "__none__"}
+                      onValueChange={(v) => setForm({ ...form, assigneeEmail: v === "__none__" ? "" : v })}
+                      items={[
+                        { value: "__none__", label: "Unassigned" },
+                        ...employees.map((emp) => ({ value: emp.email, label: emp.name })),
+                      ]}
+                      placeholder="Select employee"
+                    />
                   </div>
                   <Button type="submit" className="w-full">Create Task</Button>
                 </form>

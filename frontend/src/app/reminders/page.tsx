@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -75,25 +75,29 @@ export default function RemindersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v ?? "APPOINTMENT" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="APPOINTMENT">Appointment</SelectItem>
-                      <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
-                      <SelectItem value="MEDICINE">Medicine</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={form.type}
+                    onValueChange={(v) => setForm({ ...form, type: v || "APPOINTMENT" })}
+                    items={[
+                      { value: "APPOINTMENT", label: "Appointment" },
+                      { value: "FOLLOW_UP", label: "Follow-up" },
+                      { value: "MEDICINE", label: "Medicine" },
+                    ]}
+                    placeholder="Select type"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Channel</Label>
-                  <Select value={form.channel} onValueChange={(v) => setForm({ ...form, channel: v ?? "SMS" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SMS">SMS</SelectItem>
-                      <SelectItem value="WHATSAPP">WhatsApp</SelectItem>
-                      <SelectItem value="EMAIL">Email</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={form.channel}
+                    onValueChange={(v) => setForm({ ...form, channel: v || "SMS" })}
+                    items={[
+                      { value: "SMS", label: "SMS" },
+                      { value: "WHATSAPP", label: "WhatsApp" },
+                      { value: "EMAIL", label: "Email" },
+                    ]}
+                    placeholder="Select channel"
+                  />
                 </div>
               </div>
               <div className="space-y-2"><Label>Send At</Label><Input type="datetime-local" value={form.sendAt} onChange={(e) => setForm({ ...form, sendAt: e.target.value })} required /></div>

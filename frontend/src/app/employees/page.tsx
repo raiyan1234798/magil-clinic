@@ -5,10 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -54,22 +54,27 @@ export default function EmployeesPage() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Add Employee</Button>} />
             <DialogContent>
-              <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Add Employee</DialogTitle>
+                <DialogDescription>Create a staff account with role-based access permissions.</DialogDescription>
+              </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /><p className="text-xs text-muted-foreground">Google sign-in coming soon — use clinic email for now</p></div>
                 <div className="space-y-2"><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
                 <div className="space-y-2">
                   <Label>Role</Label>
-                  <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v ?? "NURSE_RECEPTIONIST" })}>
-                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DOCTOR_ADMIN">Doctor Admin — Full access</SelectItem>
-                      <SelectItem value="NURSE_RECEPTIONIST">Nurse — Appointments & patients</SelectItem>
-                      <SelectItem value="PHARMACIST">Pharmacist — Pharmacy & inventory</SelectItem>
-                      <SelectItem value="FINANCE_MANAGER">Finance — Billing & payroll</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <LabeledSelect
+                    value={form.role}
+                    onValueChange={(v) => setForm({ ...form, role: v || "NURSE_RECEPTIONIST" })}
+                    items={[
+                      { value: "DOCTOR_ADMIN", label: "Doctor Admin — Full access" },
+                      { value: "NURSE_RECEPTIONIST", label: "Nurse — Appointments & patients" },
+                      { value: "PHARMACIST", label: "Pharmacist — Pharmacy & inventory" },
+                      { value: "FINANCE_MANAGER", label: "Finance — Billing & payroll" },
+                    ]}
+                    placeholder="Select role"
+                  />
                 </div>
                 <div className="space-y-2"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Salary (₹)</Label><Input type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} /></div>

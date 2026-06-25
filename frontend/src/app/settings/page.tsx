@@ -5,7 +5,7 @@ import { PageCard, PageCardHeader } from "@/components/PageCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { LabeledSelect } from "@/components/LabeledSelect";
 import { useEffect, useState } from "react";
 import { apiFetch, showApiError } from "@/lib/api";
 import { canViewRoles, getUser } from "@/lib/auth";
@@ -200,12 +200,12 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Font</Label>
-                <Select value={form.fontFamily} onValueChange={(v) => setForm({ ...form, fontFamily: v ?? "Inter" })}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {FONT_OPTIONS.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <LabeledSelect
+                  value={form.fontFamily}
+                  onValueChange={(v) => setForm({ ...form, fontFamily: v || "Inter" })}
+                  items={FONT_OPTIONS.map((f) => ({ value: f, label: f }))}
+                  placeholder="Select font"
+                />
               </div>
             </div>
           </PageCard>

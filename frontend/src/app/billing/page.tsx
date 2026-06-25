@@ -6,51 +6,68 @@ import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { PageCard } from "@/components/PageCard";
 import { EmptyState } from "@/components/EmptyState";
+import { PatientCombobox } from "@/components/PatientCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { InvoiceView } from "@/components/InvoiceView";
-import { Plus, Eye, FileText, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { Plus, Eye, FileText, TrendingUp, TrendingDown, DollarSign, Receipt } from "lucide-react";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { apiFetch, formatDate, formatCurrency, ApiError } from "@/lib/api";
+import { apiFetch, formatDate, formatCurrency, showApiError } from "@/lib/api";
 import { toast } from "sonner";
+
+type GstSettings = { gstEnabled: boolean; gstRate: number };
 
 function BillingContent() {
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get("tab") === "finance" ? "finance" : "invoices";
 
   const [bills, setBills] = useState<any[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
+  const [gstSettings, setGstSettings] = useState<GstSettings>({ gstEnabled: true, gstRate: 18 });
   const [financeData, setFinanceData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
   const [viewBill, setViewBill] = useState<any>(null);
-  const [form, setForm] = useState({ patientId: "", type: "CONSULTATION", description: "", unitPrice: "", quantity: "1", paymentMethod: "CASH" });
+  const [form, setForm] = useState({
+    patientId: "",
+    type: "CONSULTATION",
+    description: "",
+    unitPrice: "",
+    quantity: "1",
+    paymentMethod: "CASH",
+    gstEnabled: true,
+    gstRate: "18",
+  });
   const [expenseForm, setExpenseForm] = useState({ category: "", description: "", amount: "" });
 
   const loadBills = () => {
     setLoading(true);
     apiFetch<any[]>("/api/bills")
       .then(setBills)
-      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load bills"))
+      .catch((err) => showApiError(err, "Failed to load bills"))
       .finally(() => setLoading(false));
   };
 
-  const loadFinance = () => apiFetch("/api/finance").then(setFinanceData).catch(console.error);
+  const loadFinance = () => apiFetch("/api/finance").then(setFinanceData).catch(() => {});
 
   useEffect(() => {
     loadBills();
     loadFinance();
-    apiFetch<any[]>("/api/patients")
-      .then(setPatients)
-      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load patients"));
+    apiFetch<GstSettings>("/api/settings")
+      .then((s) => setGstSettings({ gstEnabled: s.gstEnabled ?? true, gstRate: s.gstRate ?? 18 }))
+      .catch(() => {});
   }, []);
+
+  const subtotal = form.unitPrice ? parseFloat(form.unitPrice) * parseInt(form.quantity || "1") : 0;
+  const gstRateNum = parseFloat(form.gstRate) || 0;
+  const gstAmount = form.gstEnabled ? subtotal * (gstRateNum / 100) : 0;
+  const invoiceTotal = subtotal + gstAmount;
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,17 +82,27 @@ function BillingContent() {
           patientId: form.patientId,
           type: form.type,
           paymentMethod: form.paymentMethod,
-          gstRate: 0.18,
+          gstEnabled: form.gstEnabled,
+          gstRate: gstRateNum,
           items: [{ description: form.description, quantity: parseInt(form.quantity), unitPrice: parseFloat(form.unitPrice) }],
         }),
       });
       toast.success("Invoice generated!");
       setOpen(false);
-      setForm({ patientId: "", type: "CONSULTATION", description: "", unitPrice: "", quantity: "1", paymentMethod: "CASH" });
+      setForm({
+        patientId: "",
+        type: "CONSULTATION",
+        description: "",
+        unitPrice: "",
+        quantity: "1",
+        paymentMethod: "CASH",
+        gstEnabled: gstSettings.gstEnabled,
+        gstRate: String(gstSettings.gstRate),
+      });
       loadBills();
       loadFinance();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create bill");
+      showApiError(err, "Failed to create bill");
     }
   };
 
@@ -95,9 +122,18 @@ function BillingContent() {
     try {
       const bill = await apiFetch(`/api/bills/${id}`);
       setViewBill(bill);
-    } catch {
-      toast.error("Failed to load invoice");
+    } catch (err) {
+      showApiError(err, "Failed to load invoice");
     }
+  };
+
+  const openInvoiceDialog = () => {
+    setForm((f) => ({
+      ...f,
+      gstEnabled: gstSettings.gstEnabled,
+      gstRate: String(gstSettings.gstRate),
+    }));
+    setOpen(true);
   };
 
   const totalRevenue = bills.reduce((s, b) => s + b.paidAmount, 0);
@@ -112,33 +148,34 @@ function BillingContent() {
           <Dialog open={expenseOpen} onOpenChange={setExpenseOpen}>
             <DialogTrigger render={<Button variant="outline" className="gap-2"><TrendingDown className="h-4 w-4" /> Add Expense</Button>} />
             <DialogContent>
-              <DialogHeader><DialogTitle>Record Expense</DialogTitle></DialogHeader>
-              <form onSubmit={handleExpense} className="space-y-4">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><TrendingDown className="h-5 w-5 text-primary" /> Record Expense</DialogTitle>
+                <DialogDescription>Track clinic operating costs</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleExpense} className="space-y-4 px-5 py-4">
                 <div className="space-y-2"><Label>Category</Label><Input value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Description</Label><Input value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Amount (₹)</Label><Input type="number" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} required /></div>
-                <Button type="submit" className="w-full">Save Expense</Button>
+                <DialogFooter className="px-0 pb-0">
+                  <Button type="submit" className="w-full sm:w-auto">Save Expense</Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
+          <Button className="gap-2" onClick={openInvoiceDialog}><Plus className="h-4 w-4" /> Generate Invoice</Button>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Generate Invoice</Button>} />
-            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Generate Invoice</DialogTitle></DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Patient</Label>
-                  <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v ?? "" })}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                    <SelectContent>
-                      {patients.length === 0 ? (
-                        <SelectItem value="__none" disabled>No patients found</SelectItem>
-                      ) : (
-                        patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.patientId} — {p.name}</SelectItem>)
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
+            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Receipt className="h-5 w-5 text-primary" /> Generate Invoice</DialogTitle>
+                <DialogDescription>Create a new bill for a patient</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreate} className="space-y-4 px-5 py-4">
+                <PatientCombobox
+                  value={form.patientId}
+                  onChange={(id) => setForm({ ...form, patientId: id })}
+                  returnUrl="/billing"
+                  required
+                />
                 <div className="space-y-2">
                   <Label>Type</Label>
                   <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v ?? "CONSULTATION" })}>
@@ -150,10 +187,55 @@ function BillingContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Description</Label><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Consultation fee, procedure, etc." required /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Amount (₹)</Label><Input type="number" min="0" step="0.01" value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} required /></div>
                   <div className="space-y-2"><Label>Qty</Label><Input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></div>
+                </div>
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="gstEnabled" className="cursor-pointer">Apply GST</Label>
+                    <input
+                      id="gstEnabled"
+                      type="checkbox"
+                      checked={form.gstEnabled}
+                      onChange={(e) => setForm({ ...form, gstEnabled: e.target.checked })}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                  </div>
+                  {form.gstEnabled && (
+                    <div className="space-y-2">
+                      <Label>GST Rate (%)</Label>
+                      <div className="flex gap-2 flex-wrap">
+                        {[0, 5, 12, 18, 28].map((r) => (
+                          <Button
+                            key={r}
+                            type="button"
+                            size="sm"
+                            variant={form.gstRate === String(r) ? "default" : "outline"}
+                            onClick={() => setForm({ ...form, gstRate: String(r) })}
+                          >
+                            {r}%
+                          </Button>
+                        ))}
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          value={form.gstRate}
+                          onChange={(e) => setForm({ ...form, gstRate: e.target.value })}
+                          className="w-20"
+                          placeholder="Custom"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-sm space-y-1 pt-2 border-t border-border/40">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
+                    {form.gstEnabled && <div className="flex justify-between"><span className="text-muted-foreground">GST ({gstRateNum}%)</span><span>{formatCurrency(gstAmount)}</span></div>}
+                    <div className="flex justify-between font-semibold"><span>Total</span><span className="text-primary">{formatCurrency(invoiceTotal)}</span></div>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Payment Method</Label>
@@ -166,7 +248,9 @@ function BillingContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="submit" className="w-full">Generate Invoice (GST 18%)</Button>
+                <DialogFooter className="px-0 pb-0">
+                  <Button type="submit" className="w-full">Generate Invoice</Button>
+                </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
@@ -321,7 +405,9 @@ function BillingContent() {
       <Dialog open={!!viewBill} onOpenChange={(o) => !o && setViewBill(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Invoice</DialogTitle></DialogHeader>
-          {viewBill && <InvoiceView bill={viewBill} onClose={() => setViewBill(null)} />}
+          <div className="px-5 pb-5">
+            {viewBill && <InvoiceView bill={viewBill} onClose={() => setViewBill(null)} />}
+          </div>
         </DialogContent>
       </Dialog>
     </PageLayout>

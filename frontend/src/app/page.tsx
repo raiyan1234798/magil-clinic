@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch, formatCurrency, formatTime } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { WhatsAppSendMenu } from "@/components/WhatsAppSendMenu";
 
 interface DashboardData {
   todayAppointments: number;
@@ -22,9 +23,12 @@ interface DashboardData {
   lowStock: number;
   revenue: number;
   pendingFollowUps: number;
-  recentAppointments: Array<{
+      recentAppointments: Array<{
     id: string;
     tokenNumber: string;
+    tokenLabel?: string;
+    appointmentType?: string;
+    isWalkIn?: boolean;
     appointmentDate: string;
     status: string;
     patient: { name: string; patientId?: string; phoneNumber?: string };
@@ -95,13 +99,21 @@ export default function Dashboard() {
                         <span className="ml-1.5 text-xs font-normal text-primary">({apt.patient.patientId})</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Token {apt.tokenNumber} · Dr. {apt.doctor?.name || "Unassigned"}
+                        {apt.tokenLabel || `Token ${apt.tokenNumber}`} · Dr. {apt.doctor?.name || "Unassigned"}
+                        {apt.appointmentType === "PHONE" && !apt.isWalkIn ? " · Phone" : ""}
                       </p>
                     </div>
                   </div>
-                  <div className="shrink-0 text-right">
+                  <div className="shrink-0 flex flex-col items-end gap-1.5">
                     <p className="text-sm font-medium">{formatTime(apt.appointmentDate)}</p>
                     <StatusBadge status={apt.status} />
+                    {(apt.appointmentType === "PHONE" && !apt.isWalkIn) && (
+                      <WhatsAppSendMenu
+                        appointmentId={apt.id}
+                        appointmentType={apt.appointmentType}
+                        isWalkIn={apt.isWalkIn}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
@@ -220,8 +232,13 @@ export default function Dashboard() {
                           <span className="ml-1 text-xs text-primary">({apt.patient.patientId})</span>
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatTime(apt.appointmentDate)} · Token {apt.tokenNumber}
+                          {formatTime(apt.appointmentDate)} · {apt.tokenLabel || `Token ${apt.tokenNumber}`}
                         </p>
+                        {(apt.appointmentType === "PHONE" && !apt.isWalkIn) && (
+                          <div className="mt-2">
+                            <WhatsAppSendMenu appointmentId={apt.id} appointmentType={apt.appointmentType} isWalkIn={apt.isWalkIn} />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

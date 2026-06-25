@@ -12,10 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch, formatCurrency } from "@/lib/api";
+import { apiFetch, formatCurrency, showApiError } from "@/lib/api";
 import { canViewRoles, getUser, isSuperAdmin, ROLE_LABELS } from "@/lib/auth";
 import { toast } from "sonner";
-import { ApiError } from "@/lib/api";
 
 export default function EmployeesPage() {
   const user = getUser();
@@ -40,7 +39,7 @@ export default function EmployeesPage() {
       setOpen(false);
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to create employee");
+      showApiError(err, "Failed to create employee");
     }
   };
 
@@ -58,7 +57,7 @@ export default function EmployeesPage() {
               <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-                <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+                <div className="space-y-2"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /><p className="text-xs text-muted-foreground">Google sign-in coming soon — use clinic email for now</p></div>
                 <div className="space-y-2"><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
                 <div className="space-y-2">
                   <Label>Role</Label>

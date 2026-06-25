@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, showApiError } from "@/lib/api";
 import { canViewRoles, getUser } from "@/lib/auth";
 import { toast } from "sonner";
 import {
   Clock, Plug, Zap, Shield, MessageSquare, Mail, FileText, Printer, Calendar,
-  Bell, Pill, Receipt, Package, Users, Wallet
+  Bell, Pill, Receipt, Package, Users, Wallet, Percent
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +25,8 @@ type SettingsForm = {
   consultStartHour: number;
   consultEndHour: number;
   slotMinutes: number;
+  gstEnabled: boolean;
+  gstRate: number;
   integrations: Record<string, boolean>;
   automation: Record<string, boolean>;
   consultHoursLabel?: string;
@@ -124,12 +126,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     apiFetch<SettingsForm>("/api/settings")
-      .then(setForm)
-      .catch((err) => {
-        if (!(err instanceof ApiError && err.isNetworkError)) {
-          toast.error(err instanceof ApiError ? err.message : "Failed to load settings");
-        }
-      })
+      .then((s) => setForm({ ...s, gstEnabled: s.gstEnabled ?? true, gstRate: s.gstRate ?? 18 }))
+      .catch((err) => showApiError(err, "Failed to load settings"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -145,7 +143,7 @@ export default function SettingsPage() {
       setForm(updated);
       toast.success("Settings saved");
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to save settings");
+      showApiError(err, "Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -226,6 +224,47 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">
                 {form.consultHoursLabel || `${form.consultStartHour}:00 – ${form.consultEndHour}:00`} · up to {form.maxTokens ?? "—"} tokens/day
               </p>
+            </div>
+          </PageCard>
+
+          <PageCard>
+            <PageCardHeader title="Billing & GST" description="Default tax settings for invoices" />
+            <div className="space-y-4 text-sm">
+              <ToggleCard
+                label="Enable GST on invoices"
+                description="When off, invoices are generated without tax"
+                icon={Percent}
+                enabled={form.gstEnabled}
+                onChange={(v) => setForm({ ...form, gstEnabled: v })}
+              />
+              {form.gstEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="gstRate">Default GST Rate (%)</Label>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {[5, 12, 18, 28].map((r) => (
+                      <Button
+                        key={r}
+                        type="button"
+                        size="sm"
+                        variant={form.gstRate === r ? "default" : "outline"}
+                        onClick={() => setForm({ ...form, gstRate: r })}
+                      >
+                        {r}%
+                      </Button>
+                    ))}
+                    <Input
+                      id="gstRate"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.1}
+                      value={form.gstRate}
+                      onChange={(e) => setForm({ ...form, gstRate: parseFloat(e.target.value) || 0 })}
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </PageCard>
 

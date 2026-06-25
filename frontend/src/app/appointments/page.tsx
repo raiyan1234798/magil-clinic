@@ -8,18 +8,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Bell, Phone, UserRound } from "lucide-react";
+import { PatientCombobox } from "@/components/PatientCombobox";
+import { WhatsAppSendMenu } from "@/components/WhatsAppSendMenu";
+import { Plus, Calendar, Phone, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
-import { apiFetch, formatDate, formatTime, STATUS_COLORS } from "@/lib/api";
+import { apiFetch, formatDate, formatTime, STATUS_COLORS, showApiError } from "@/lib/api";
 import { getUser } from "@/lib/auth";
 import { toast } from "sonner";
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>(null);
-  const [patients, setPatients] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
@@ -31,15 +32,13 @@ export default function AppointmentsPage() {
   });
 
   const user = getUser();
-  const selectedPatient = patients.find((p) => p.id === form.patientId);
 
-  const load = () => apiFetch<any[]>("/api/appointments").then(setAppointments).catch(console.error);
+  const load = () => apiFetch<any[]>("/api/appointments").then(setAppointments).catch(() => {});
 
   useEffect(() => {
     load();
-    apiFetch<any[]>("/api/patients").then(setPatients);
-    apiFetch<any[]>("/api/doctors").then(setDoctors);
-    apiFetch("/api/settings").then(setSettings).catch(console.error);
+    apiFetch<any[]>("/api/doctors").then(setDoctors).catch(() => {});
+    apiFetch("/api/settings").then(setSettings).catch(() => {});
   }, []);
 
   const handleBook = async (e: React.FormEvent) => {
@@ -55,14 +54,14 @@ export default function AppointmentsPage() {
       });
       const slot = result.scheduledSlotStart ? `${formatTime(result.scheduledSlotStart)} – ${formatTime(result.scheduledSlotEnd)}` : "";
       toast.success(
-        `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel} at ${slot}. WhatsApp reminder ${result.whatsappSent ? "sent" : "scheduled"}.`,
-        { duration: 7000 }
+        `${result.appointmentType === "WALK_IN" ? "Walk-in" : "Phone"} booking: ${result.patient?.name} — ${result.tokenLabel}${slot ? ` at ${slot}` : ""}.`,
+        { duration: 5000 }
       );
       setOpen(false);
       setForm({ patientId: "", doctorId: "", appointmentDate: "", reason: "", appointmentType: "PHONE" });
       load();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to book appointment");
+    } catch (err: unknown) {
+      showApiError(err, "Failed to book appointment");
     }
   };
 
@@ -88,9 +87,12 @@ export default function AppointmentsPage() {
       actions={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Book Appointment</Button>} />
-          <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Schedule Appointment (Nurse)</DialogTitle></DialogHeader>
-            <form onSubmit={handleBook} className="space-y-4">
+          <DialogContent className="max-w-lg sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" /> Schedule Appointment</DialogTitle>
+              <DialogDescription>Book a phone or walk-in consultation</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleBook} className="space-y-4 px-5 py-4">
               <div className="space-y-2">
                 <Label>Appointment Type *</Label>
                 <Select value={form.appointmentType} onValueChange={(v) => setForm({ ...form, appointmentType: (v as "PHONE" | "WALK_IN") ?? "PHONE" })}>
@@ -101,20 +103,12 @@ export default function AppointmentsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Patient *</Label>
-                <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v ?? "" })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                  <SelectContent>
-                    {patients.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.patientId} — {p.name} ({p.phoneNumber})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedPatient && (
-                  <p className="text-xs bg-slate-50 p-2 rounded">Booking for: <strong>{selectedPatient.name}</strong> · {selectedPatient.patientId}</p>
-                )}
-              </div>
+              <PatientCombobox
+                value={form.patientId}
+                onChange={(id) => setForm({ ...form, patientId: id })}
+                returnUrl="/appointments"
+                required
+              />
               <div className="space-y-2">
                 <Label>Doctor *</Label>
                 <Select value={form.doctorId} onValueChange={(v) => setForm({ ...form, doctorId: v ?? "" })}>
@@ -128,15 +122,19 @@ export default function AppointmentsPage() {
                 <div className="space-y-2">
                   <Label>Appointment Date *</Label>
                   <Input type="date" value={form.appointmentDate} onChange={(e) => setForm({ ...form, appointmentDate: e.target.value })} required />
-                  <p className="text-xs text-slate-500">Token & time slot (5–9 PM) assigned automatically</p>
+                  <p className="text-xs text-muted-foreground">Token & time slot assigned automatically during consulting hours</p>
                 </div>
               )}
               <div className="space-y-2">
                 <Label>Reason</Label>
                 <Input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="Consultation reason" />
               </div>
-              <p className="text-xs text-slate-400 flex items-center gap-1"><Bell className="h-3 w-3" /> WhatsApp reminder sent to patient on booking</p>
-              <Button type="submit" className="w-full" disabled={!form.patientId || !form.doctorId}>Book & Send WhatsApp Reminder</Button>
+              <p className="text-xs text-muted-foreground rounded-lg bg-muted/40 p-3">
+                You can send a WhatsApp reminder after booking using the Send WhatsApp button on each appointment row.
+              </p>
+              <DialogFooter className="px-0 pb-0">
+                <Button type="submit" className="w-full" disabled={!form.patientId || !form.doctorId}>Book Appointment</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -152,7 +150,7 @@ export default function AppointmentsPage() {
         {["all", "walkin", "phone"].map((tab) => (
           <TabsContent key={tab} value={tab}>
             <Card>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -160,7 +158,7 @@ export default function AppointmentsPage() {
                       <TableHead>Type</TableHead>
                       <TableHead>Patient</TableHead>
                       <TableHead>Doctor</TableHead>
-                      <TableHead>Slot (5–9 PM)</TableHead>
+                      <TableHead>Slot</TableHead>
                       <TableHead>Actual Time</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
@@ -186,7 +184,12 @@ export default function AppointmentsPage() {
                           {a.actualEndTime ? ` → ${formatTime(a.actualEndTime)}` : ""}
                         </TableCell>
                         <TableCell><Badge className={STATUS_COLORS[a.status]}>{a.status}</Badge></TableCell>
-                        <TableCell className="flex gap-1">
+                        <TableCell className="flex flex-wrap gap-1">
+                          <WhatsAppSendMenu
+                            appointmentId={a.id}
+                            appointmentType={a.appointmentType}
+                            isWalkIn={a.isWalkIn}
+                          />
                           {a.status === "SCHEDULED" && (
                             <Button size="sm" variant="outline" onClick={() => startConsult(a.id)}>Start</Button>
                           )}

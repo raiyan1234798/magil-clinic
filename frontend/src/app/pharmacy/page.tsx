@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PatientCombobox } from "@/components/PatientCombobox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Pill } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch, formatCurrency } from "@/lib/api";
@@ -19,13 +20,11 @@ export default function PharmacyPage() {
   const [open, setOpen] = useState(false);
   const [dispenseOpen, setDispenseOpen] = useState(false);
   const [form, setForm] = useState({ name: "", category: "", manufacturer: "", price: "", stock: "", minStock: "10" });
-  const [patients, setPatients] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [dispense, setDispense] = useState({ medicineId: "", patientId: "", quantity: "1", notes: "" });
 
   const load = () => {
-    apiFetch<any[]>("/api/medicines").then(setMedicines);
-    apiFetch<any[]>("/api/patients").then(setPatients);
+    apiFetch<any[]>("/api/medicines").then(setMedicines).catch(() => {});
     apiFetch<any[]>("/api/pharmacy/sales").then(setSales).catch(() => {});
   };
   useEffect(() => { load(); }, []);
@@ -59,15 +58,17 @@ export default function PharmacyPage() {
           <Dialog open={dispenseOpen} onOpenChange={setDispenseOpen}>
             <DialogTrigger render={<Button variant="secondary" className="gap-2"><Pill className="h-4 w-4" /> Dispense</Button>} />
             <DialogContent>
-              <DialogHeader><DialogTitle>Dispense Medicine</DialogTitle></DialogHeader>
-              <form onSubmit={handleDispense} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Patient *</Label>
-                  <Select value={dispense.patientId} onValueChange={(v) => setDispense({ ...dispense, patientId: v ?? "" })}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                    <SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.patientId} — {p.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Pill className="h-5 w-5 text-primary" /> Dispense Medicine</DialogTitle>
+                <DialogDescription>Dispense to patient and update inventory</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleDispense} className="space-y-4 px-5 py-4">
+                <PatientCombobox
+                  value={dispense.patientId}
+                  onChange={(id) => setDispense({ ...dispense, patientId: id })}
+                  returnUrl="/pharmacy"
+                  required
+                />
                 <div className="space-y-2">
                   <Label>Medicine</Label>
                   <Select value={dispense.medicineId} onValueChange={(v) => setDispense({ ...dispense, medicineId: v ?? "" })}>
@@ -83,8 +84,11 @@ export default function PharmacyPage() {
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> Add Medicine</Button>} />
             <DialogContent>
-              <DialogHeader><DialogTitle>Add Medicine</DialogTitle></DialogHeader>
-              <form onSubmit={handleAdd} className="space-y-4">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Pill className="h-5 w-5 text-primary" /> Add Medicine</DialogTitle>
+                <DialogDescription>Add a new medicine to pharmacy inventory</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleAdd} className="space-y-4 px-5 py-4">
                 <div className="space-y-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
                 <div className="space-y-2"><Label>Category</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Manufacturer</Label><Input value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })} /></div>

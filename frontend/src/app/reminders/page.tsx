@@ -9,10 +9,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, MessageSquare, Mail, Phone } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PatientCombobox } from "@/components/PatientCombobox";
+import { WhatsAppSendMenu } from "@/components/WhatsAppSendMenu";
+import { Plus, MessageSquare, Mail, Phone, Send } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiFetch, formatDate, STATUS_COLORS, ApiError } from "@/lib/api";
+import { apiFetch, formatDate, STATUS_COLORS, showApiError } from "@/lib/api";
 import { toast } from "sonner";
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
@@ -24,7 +27,6 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
 export default function RemindersPage() {
   const [reminders, setReminders] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any>(null);
-  const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ patientId: "", type: "APPOINTMENT", channel: "SMS", message: "", sendAt: "" });
@@ -35,13 +37,10 @@ export default function RemindersPage() {
       apiFetch<any[]>("/api/reminders").then(setReminders),
       apiFetch("/api/notifications").then(setNotifications),
     ])
-      .catch((err) => toast.error(err instanceof ApiError ? err.message : "Failed to load reminders"))
+      .catch((err) => showApiError(err, "Failed to load reminders"))
       .finally(() => setLoading(false));
   };
-  useEffect(() => {
-    load();
-    apiFetch<any[]>("/api/patients").then(setPatients).catch(() => {});
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const appointmentReminders = reminders.filter((r) => r.type === "APPOINTMENT" || r.type === "APPOINTMENT_DOCTOR");
 
@@ -58,20 +57,17 @@ export default function RemindersPage() {
   return (
     <PageLayout
       title="Reminders"
-      description="Appointment, follow-up, and medicine reminders via SMS, WhatsApp, and Email. Appointment reminders are created automatically when booking."
+      description="Appointment, follow-up, and medicine reminders. WhatsApp messages are sent manually from the Appointments page."
       actions={
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> New Reminder</Button>} />
           <DialogContent>
-            <DialogHeader><DialogTitle>Create Reminder</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Patient</Label>
-                <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v ?? "" })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                  <SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+            <DialogHeader>
+              <DialogTitle>Create Reminder</DialogTitle>
+              <DialogDescription>Schedule SMS, email, or WhatsApp follow-ups</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-4 px-5 py-4">
+              <PatientCombobox value={form.patientId} onChange={(id) => setForm({ ...form, patientId: id })} returnUrl="/reminders" />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Type</Label>
@@ -98,7 +94,9 @@ export default function RemindersPage() {
               </div>
               <div className="space-y-2"><Label>Send At</Label><Input type="datetime-local" value={form.sendAt} onChange={(e) => setForm({ ...form, sendAt: e.target.value })} required /></div>
               <div className="space-y-2"><Label>Message</Label><Textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required /></div>
-              <Button type="submit" className="w-full">Schedule Reminder</Button>
+              <DialogFooter className="px-0 pb-0">
+                <Button type="submit" className="w-full">Schedule Reminder</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -113,9 +111,12 @@ export default function RemindersPage() {
                 <div key={s.doctor.id} className="bg-white rounded p-3 text-sm">
                   <p className="font-bold text-primary">{s.doctor.name}</p>
                   {s.appointments.map((a: any) => (
-                    <p key={a.id} className="text-slate-600 mt-1">
-                      {a.patient.name} ({a.patient.patientId}) — {formatDate(a.appointmentDate)} — Token {a.tokenNumber}
-                    </p>
+                    <div key={a.id} className="flex items-center justify-between gap-2 mt-2">
+                      <p className="text-slate-600">
+                        {a.patient.name} ({a.patient.patientId}) — {formatDate(a.appointmentDate)} — {a.tokenLabel || `Token ${a.tokenNumber}`}
+                      </p>
+                      <WhatsAppSendMenu appointmentId={a.id} appointmentType={a.appointmentType} isWalkIn={a.isWalkIn} />
+                    </div>
                   ))}
                 </div>
               ))}
@@ -125,9 +126,16 @@ export default function RemindersPage() {
       )}
 
       <Card className="mb-6">
-        <CardContent className="p-4">
-          <p className="text-sm font-medium mb-2">Appointment Reminders ({appointmentReminders.length})</p>
-          <p className="text-xs text-slate-500">Auto-created when appointments are booked — sent via SMS, WhatsApp, and email to doctors.</p>
+        <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Appointment WhatsApp ({appointmentReminders.filter((r) => r.channel === "WHATSAPP").length})</p>
+            <p className="text-xs text-muted-foreground">Sent manually from Appointments — not auto-sent on booking.</p>
+          </div>
+          <Link href="/appointments">
+            <Button variant="outline" size="sm" className="gap-2">
+              <Send className="h-4 w-4" /> Send via Appointments
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 
@@ -148,7 +156,7 @@ export default function RemindersPage() {
               {loading ? (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">Loading reminders…</TableCell></TableRow>
               ) : reminders.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">No reminders yet. Create one above or book an appointment to auto-schedule.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">No reminders yet. Create one above or send WhatsApp from Appointments.</TableCell></TableRow>
               ) : (
               reminders.map((r) => (
                 <TableRow key={r.id}>

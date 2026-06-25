@@ -12,6 +12,7 @@ model User {
   password     String
   name         String
   role         String // DOCTOR_ADMIN, NURSE_RECEPTIONIST, PHARMACIST, FINANCE_MANAGER
+  googleId     String?  @unique
   phone        String?
   departmentId String?
   salary       Float?
@@ -239,6 +240,8 @@ model Bill {
   patientId     String?
   type          String // CONSULTATION, PHARMACY, SERVICE
   subtotal      Float
+  gstEnabled    Boolean  @default(true)
+  gstRate       Float    @default(18)
   gstAmount     Float    @default(0)
   total         Float
   paidAmount    Float    @default(0)
@@ -353,15 +356,16 @@ model Reminder {
 }
 
 model PatientDocument {
-  id        String   @id @default(uuid())
-  patientId String
-  name      String
-  type      String // LAB_REPORT, SCAN, PRESCRIPTION, OTHER
-  url       String?
-  fileData  String?  // base64 image data
-  mimeType  String?
-  notes     String?
-  createdAt DateTime @default(now())
+  id         String    @id @default(uuid())
+  patientId  String
+  name       String
+  type       String // LAB_REPORT, SCAN, PRESCRIPTION, OTHER
+  url        String?
+  fileData   String?   // base64 image data
+  mimeType   String?
+  notes      String?
+  recordDate DateTime? // historical record date (e.g. from 2002)
+  createdAt  DateTime  @default(now())
 
   patient Patient @relation(fields: [patientId], references: [id])
 }
@@ -375,6 +379,8 @@ model ClinicSettings {
   consultStartHour Int      @default(17) // 5 PM
   consultEndHour   Int      @default(21) // 9 PM
   slotMinutes      Int      @default(15)
+  gstEnabled       Boolean  @default(true)
+  gstRate          Float    @default(18)
   integrations     String   @default("{}") // JSON: whatsapp, sms, email, etc.
   automation       String   @default("{}") // JSON: appointmentReminders, etc.
   updatedAt        DateTime @updatedAt

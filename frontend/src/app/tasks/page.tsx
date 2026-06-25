@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Plus, GripVertical, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { apiFetch, ApiError, formatDate, taskQueryParams } from "@/lib/api";
+import { apiFetch, formatDate, showApiError, taskQueryParams } from "@/lib/api";
 import { getUser, isSuperAdmin } from "@/lib/auth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -87,7 +87,7 @@ export default function TasksPage() {
         prev.map((t) => (t.id === taskId ? { ...t, status, sortOrder } : t))
       );
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to move task");
+      showApiError(err, "Failed to move task");
       loadTasks();
     }
   };
@@ -116,7 +116,7 @@ export default function TasksPage() {
       setForm({ title: "", description: "", priority: "MEDIUM", assigneeEmail: "", dueDate: "" });
       loadTasks();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to create task");
+      showApiError(err, "Failed to create task");
     }
   };
 
@@ -125,7 +125,7 @@ export default function TasksPage() {
       await apiFetch(`/api/tasks/${id}`, { method: "DELETE" });
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to delete task");
+      showApiError(err, "Failed to delete task");
     }
   };
 

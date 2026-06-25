@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import { API_URL } from "@/lib/api";
+import { getApiUrl } from "@/lib/api";
 import { clearApiError, subscribeApiError } from "@/lib/api-status";
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +20,7 @@ export function ApiErrorBanner() {
         <div className="min-w-0 flex-1 text-sm">
           <p className="font-medium">API connection issue</p>
           <p className="mt-0.5 text-amber-900/80 dark:text-amber-100/80">{error}</p>
-          <p className="mt-1 text-xs text-amber-800/70 dark:text-amber-100/60">Endpoint: {API_URL}</p>
+          <p className="mt-1 text-xs text-amber-800/70 dark:text-amber-100/60">Endpoint: {getApiUrl()}</p>
         </div>
         <Button
           type="button"

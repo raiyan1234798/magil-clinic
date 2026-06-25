@@ -12,7 +12,8 @@ interface InvoiceViewProps {
 export function InvoiceView({ bill, onClose }: InvoiceViewProps) {
   const clinic = bill.clinic || { name: "Magil Clinic", address: "Magil Clinic Management System", phone: "+91 9876543210", gstin: "GSTIN-MAGIL-2026" };
   const items = bill.items || [];
-  const gstRate = bill.subtotal > 0 ? Math.round((bill.gstAmount / bill.subtotal) * 100) : 18;
+  const gstEnabled = bill.gstEnabled !== false && bill.gstAmount > 0;
+  const gstRate = bill.gstRate ?? (bill.subtotal > 0 ? Math.round((bill.gstAmount / bill.subtotal) * 100) : 0);
 
   const handlePrint = () => {
     window.print();
@@ -73,7 +74,11 @@ export function InvoiceView({ bill, onClose }: InvoiceViewProps) {
       <div className="flex justify-end mb-6">
         <div className="w-full sm:w-64 space-y-2 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span>{formatCurrency(bill.subtotal)}</span></div>
-          <div className="flex justify-between"><span>GST ({gstRate}%)</span><span>{formatCurrency(bill.gstAmount)}</span></div>
+          {gstEnabled ? (
+            <div className="flex justify-between"><span>GST ({gstRate}%)</span><span>{formatCurrency(bill.gstAmount)}</span></div>
+          ) : (
+            <div className="flex justify-between text-muted-foreground"><span>GST</span><span>Not applicable</span></div>
+          )}
           <div className="flex justify-between font-bold text-lg border-t pt-2"><span>Total</span><span>{formatCurrency(bill.total)}</span></div>
           <div className="flex justify-between text-green-600"><span>Paid</span><span>{formatCurrency(bill.paidAmount)}</span></div>
           <div className="flex justify-between"><span>Payment</span><span>{bill.paymentMethod || "—"}</span></div>

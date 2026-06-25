@@ -98,3 +98,54 @@ export async function sendWhatsAppReminder(phone: string, message: string): Prom
   console.log(`[WhatsApp SIMULATION] To ${phone}: ${message}`);
   return 'SENT';
 }
+
+export type WhatsAppTemplate =
+  | 'APPOINTMENT_SCHEDULED'
+  | 'NOT_SCHEDULED'
+  | 'DOCTOR_NOT_PRESENT'
+  | 'BOOKING_CONFIRMED'
+  | 'CUSTOM';
+
+type AppointmentForMessage = {
+  patient: { name: string; phoneNumber: string };
+  doctor?: { name: string } | null;
+  appointmentDate: Date;
+  scheduledSlotStart?: Date | null;
+  scheduledSlotEnd?: Date | null;
+  tokenLabel?: string | null;
+  tokenNumber?: number | null;
+  appointmentType?: string;
+  isWalkIn?: boolean;
+};
+
+function formatDateIN(date: Date) {
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+export function buildAppointmentWhatsAppMessage(
+  appointment: AppointmentForMessage,
+  template: WhatsAppTemplate,
+  customMessage?: string
+): string {
+  if (template === 'CUSTOM' && customMessage?.trim()) return customMessage.trim();
+
+  const patientName = appointment.patient.name;
+  const rawDoctor = appointment.doctor?.name || 'the doctor';
+  const doctorName = rawDoctor.replace(/^Dr\.?\s*/i, '');
+  const slotStart = appointment.scheduledSlotStart || appointment.appointmentDate;
+  const date = formatDateIN(slotStart);
+  const time = formatTime12(slotStart);
+  const tokenLabel = appointment.tokenLabel || `Token ${appointment.tokenNumber}`;
+
+  switch (template) {
+    case 'APPOINTMENT_SCHEDULED':
+      return `Hi ${patientName}, your phone appointment with Dr. ${doctorName} is confirmed for ${date} at ${time}. Token: ${tokenLabel}. Please be available on your phone.`;
+    case 'NOT_SCHEDULED':
+      return `Hi ${patientName}, your appointment with Dr. ${doctorName} on ${date} could not be scheduled. Please contact the clinic to rebook.`;
+    case 'DOCTOR_NOT_PRESENT':
+      return `Hi ${patientName}, Dr. ${doctorName} is not available today (${date}). Please contact us to book a new slot.`;
+    case 'BOOKING_CONFIRMED':
+    default:
+      return `Hi ${patientName}, your appointment with Dr. ${doctorName} is booked for ${date} at ${time}. Token: ${tokenLabel}`;
+  }
+}

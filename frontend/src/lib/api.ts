@@ -3,17 +3,23 @@ import { clearApiError, setApiError } from "./api-status";
 
 const PRODUCTION_API_URL = "https://magil-clinic-api.onrender.com";
 
-function resolveApiUrl(): string {
+/** Resolve API URL at call time — never bake localhost into static export builds. */
+export function getApiUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  if (typeof window !== "undefined" && !window.location.hostname.includes("localhost")) {
-    return PRODUCTION_API_URL;
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") {
+      return PRODUCTION_API_URL;
+    }
+    return "http://localhost:5001";
   }
-  return "http://localhost:5001";
+  return PRODUCTION_API_URL;
 }
 
-export const API_URL = resolveApiUrl();
+/** @deprecated Use getApiUrl() for runtime resolution */
+export const API_URL = getApiUrl();
 
 export class ApiError extends Error {
   isNetworkError: boolean;
@@ -26,11 +32,21 @@ export class ApiError extends Error {
 }
 
 function networkErrorMessage(): string {
-  const isProd = typeof window !== "undefined" && !window.location.hostname.includes("localhost");
+  const url = getApiUrl();
+  const isProd = typeof window !== "undefined" && !["localhost", "127.0.0.1"].includes(window.location.hostname);
   if (isProd) {
-    return `Cannot reach the API at ${API_URL}. The backend may be starting up — try again in a minute.`;
+    return `Cannot reach the API at ${url}. The backend may be starting up — try again in a minute.`;
   }
-  return `Cannot reach the API at ${API_URL}. Start the backend with: cd backend && npm run dev`;
+  return `Cannot reach the API at ${url}. Start the backend with: cd backend && npm run dev`;
+}
+
+/** Show toast for API errors except network errors (handled by ApiErrorBanner). */
+export function showApiError(err: unknown, fallback: string) {
+  if (err instanceof ApiError && err.isNetworkError) return;
+  const message = err instanceof ApiError ? err.message : fallback;
+  if (typeof window !== "undefined") {
+    import("sonner").then(({ toast }) => toast.error(message));
+  }
 }
 
 export function taskQueryParams(extra?: Record<string, string>) {
@@ -47,7 +63,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetch(`${getApiUrl()}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -103,3 +119,23 @@ export const STATUS_COLORS: Record<string, string> = {
   HIGH: "bg-orange-100 text-orange-700",
   URGENT: "bg-red-100 text-red-700",
 };
+
+export type WhatsAppTemplate =
+  | "APPOINTMENT_SCHEDULED"
+  | "NOT_SCHEDULED"
+  | "DOCTOR_NOT_PRESENT"
+  | "BOOKING_CONFIRMED"
+  | "CUSTOM";
+
+export const WHATSAPP_PHONE_TEMPLATES: { template: WhatsAppTemplate; label: string }[] = [
+  { template: "APPOINTMENT_SCHEDULED", label: "Appointment Scheduled" },
+  { template: "NOT_SCHEDULED", label: "Not Scheduled" },
+  { template: "DOCTOR_NOT_PRESENT", label: "Doctor Not Present Today" },
+];
+
+export async function sendAppointmentWhatsApp(appointmentId: string, template: WhatsAppTemplate, message?: string) {
+  return apiFetch<{ sent: boolean; message: string }>(`/api/appointments/${appointmentId}/send-whatsapp`, {
+    method: "POST",
+    body: JSON.stringify({ template, message }),
+  });
+}

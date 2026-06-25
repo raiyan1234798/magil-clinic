@@ -32,6 +32,8 @@ export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const [patient, setPatient] = useState<any>(null);
   const [uploadType, setUploadType] = useState("LAB_REPORT");
+  const [uploadNotes, setUploadNotes] = useState("");
+  const [recordDate, setRecordDate] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadPatient = () => {
@@ -53,9 +55,13 @@ export default function PatientDetail() {
             type: uploadType,
             fileData: reader.result,
             mimeType: file.type,
+            notes: uploadNotes || undefined,
+            recordDate: recordDate || undefined,
           }),
         });
         toast.success("Document uploaded");
+        setUploadNotes("");
+        setRecordDate("");
         loadPatient();
       } catch { toast.error("Upload failed"); }
     };
@@ -173,6 +179,7 @@ export default function PatientDetail() {
                   <TableRow>
                     <TableHead>Date Given</TableHead>
                     <TableHead>Medicine</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Dosage</TableHead>
                     <TableHead>Duration</TableHead>
                     <TableHead>Qty</TableHead>
@@ -183,6 +190,7 @@ export default function PatientDetail() {
                     <TableRow key={i}>
                       <TableCell>{formatDate(m.date)}</TableCell>
                       <TableCell className="font-medium">{m.medicine}</TableCell>
+                      <TableCell><Badge variant="outline">{m.source || "PRESCRIPTION"}</Badge></TableCell>
                       <TableCell>{m.dosage}</TableCell>
                       <TableCell>{m.duration}</TableCell>
                       <TableCell>{m.quantity}</TableCell>
@@ -305,6 +313,15 @@ export default function PatientDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label>Record Date (historical)</Label>
+                <Input type="date" value={recordDate} onChange={(e) => setRecordDate(e.target.value)} placeholder="e.g. 2002" />
+                <p className="text-xs text-muted-foreground">For old records — leave blank for today</p>
+              </div>
+              <div className="space-y-2 flex-1 min-w-[200px]">
+                <Label>Notes / OCR text</Label>
+                <Input value={uploadNotes} onChange={(e) => setUploadNotes(e.target.value)} placeholder="Manual notes or extracted text (OCR coming soon)" />
+              </div>
               <div>
                 <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handleUpload} />
                 <Button variant="outline" className="gap-2" onClick={() => fileRef.current?.click()}>
@@ -321,7 +338,8 @@ export default function PatientDetail() {
                     <TableHead>Name</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Notes</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Record Date</TableHead>
+                    <TableHead>Uploaded</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -330,6 +348,7 @@ export default function PatientDetail() {
                       <TableCell className="font-medium">{d.name}</TableCell>
                       <TableCell>{d.type.replace("_", " ")}</TableCell>
                       <TableCell>{d.notes || "—"}</TableCell>
+                      <TableCell>{d.recordDate ? formatDate(d.recordDate) : "—"}</TableCell>
                       <TableCell>{formatDate(d.createdAt)}</TableCell>
                       <TableCell>
                         {(d.url || d.fileData) ? (

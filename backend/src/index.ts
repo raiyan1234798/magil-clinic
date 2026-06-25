@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from './prisma';
 import { migrateLegacyAppointmentTokens } from './migrate-legacy-data';
-import { getSlotTimes, maxTokensPerDay, formatTime12, sendWhatsAppReminder, DEFAULT_INTEGRATIONS, DEFAULT_AUTOMATION, parseSettingsJson, formatConsultHoursLabel, type ClinicHoursConfig } from './utils';
+import { getSlotTimes, maxTokensPerDay, formatTime12, sendWhatsAppReminder, buildAppointmentWhatsAppMessage, DEFAULT_INTEGRATIONS, DEFAULT_AUTOMATION, parseSettingsJson, formatConsultHoursLabel, type ClinicHoursConfig, type WhatsAppTemplate } from './utils';
 
 /** Retry Prisma appointment reads after converting legacy string tokenNumber values. */
 async function withAppointmentMigration<T>(fn: () => Promise<T>): Promise<T> {
@@ -143,6 +143,8 @@ const updateSettings = async (req: express.Request, res: express.Response) => {
       consultStartHour,
       consultEndHour,
       slotMinutes,
+      gstEnabled,
+      gstRate,
       integrations,
       automation,
     } = req.body;
@@ -165,6 +167,8 @@ const updateSettings = async (req: express.Request, res: express.Response) => {
         consultStartHour: start,
         consultEndHour: end,
         slotMinutes: slots,
+        gstEnabled: gstEnabled !== undefined ? Boolean(gstEnabled) : existing.gstEnabled,
+        gstRate: gstRate !== undefined ? parseFloat(gstRate) : existing.gstRate,
         integrations: integrations ? JSON.stringify(integrations) : existing.integrations,
         automation: automation ? JSON.stringify(automation) : existing.automation,
       },
@@ -202,11 +206,11 @@ async function createOnboardingTasks(assigneeId: string, assigneeEmail: string, 
 
 app.post('/api/employees', async (req, res) => {
   try {
-    const { name, email, password, role, phone, salary, departmentId } = req.body;
+    const { name, email, password, role, phone, salary, departmentId, googleId } = req.body;
     const hash = await bcrypt.hash(password || 'changeme123', 10);
     const user = await prisma.user.create({
-      data: { name, email, password: hash, role, phone, salary: parseFloat(salary) || 0, departmentId: departmentId || null },
-      select: { id: true, name: true, email: true, role: true, phone: true, salary: true, createdAt: true },
+      data: { name, email, password: hash, role, phone, salary: parseFloat(salary) || 0, departmentId: departmentId || null, googleId: googleId || null },
+      select: { id: true, name: true, email: true, role: true, phone: true, salary: true, googleId: true, createdAt: true },
     });
     if (email) {
       await createOnboardingTasks(user.id, email);
@@ -280,14 +284,36 @@ app.get('/api/patients/:id', async (req, res) => {
     const visitCount = patient.appointments.length;
     const lastVisit = patient.appointments[0]?.appointmentDate || patient.createdAt;
 
-    const medications = patient.prescriptions.flatMap((rx) =>
-      rx.items.map((item) => ({
-        medicine: item.medicine.name,
-        dosage: item.dosage,
-        duration: item.duration,
-        quantity: item.quantity,
-        date: rx.createdAt,
-      }))
+    const medications = [
+      ...patient.prescriptions.flatMap((rx) =>
+        rx.items.map((item) => ({
+          medicine: item.medicine.name,
+          dosage: item.dosage,
+          duration: item.duration,
+          quantity: item.quantity,
+          date: rx.createdAt,
+          source: 'PRESCRIPTION',
+        }))
+      ),
+    ];
+
+    const pharmacySales = await prisma.pharmacySale.findMany({
+      where: { patientId: routeId(req) },
+      include: { medicine: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const pharmacyMeds = pharmacySales.map((s) => ({
+      medicine: s.medicine.name,
+      dosage: '—',
+      duration: '—',
+      quantity: s.quantity,
+      date: s.createdAt,
+      source: 'PHARMACY',
+    }));
+
+    const allMedications = [...medications, ...pharmacyMeds].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
 
     const timeline = [
@@ -319,6 +345,13 @@ app.get('/api/patients/:id', async (req, res) => {
         detail: `${m.medicine} — ${m.dosage} for ${m.duration}`,
         status: 'GIVEN',
       })),
+      ...pharmacyMeds.map((m) => ({
+        type: 'MEDICATION',
+        date: m.date,
+        title: 'Pharmacy Dispensed',
+        detail: `${m.medicine} × ${m.quantity}`,
+        status: 'DISPENSED',
+      })),
       {
         type: 'REGISTRATION',
         date: patient.createdAt,
@@ -330,9 +363,9 @@ app.get('/api/patients/:id', async (req, res) => {
 
     res.json({
       ...patient,
-      stats: { totalBilled, totalPaid, visitCount, lastVisit, medicationCount: medications.length, billCount: patient.bills.length },
-      medications,
-      pharmacySales: await prisma.pharmacySale.findMany({ where: { patientId: routeId(req) }, include: { medicine: true }, orderBy: { createdAt: 'desc' } }),
+      stats: { totalBilled, totalPaid, visitCount, lastVisit, medicationCount: allMedications.length, billCount: patient.bills.length },
+      medications: allMedications,
+      pharmacySales,
       timeline,
     });
   } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to fetch patient' }); }
@@ -366,7 +399,7 @@ app.patch('/api/patients/:id', updatePatient);
 
 app.post('/api/patients/:id/documents', async (req, res) => {
   try {
-    const { name, type, fileData, mimeType, notes } = req.body;
+    const { name, type, fileData, mimeType, notes, recordDate } = req.body;
     let url: string | undefined;
     let storedFileData: string | undefined = fileData;
 
@@ -394,6 +427,7 @@ app.post('/api/patients/:id/documents', async (req, res) => {
         fileData: storedFileData,
         mimeType,
         notes,
+        recordDate: recordDate ? new Date(recordDate) : null,
       },
     });
     res.json(doc);
@@ -505,6 +539,7 @@ app.get('/api/notifications', async (_req, res) => {
           id: a.id,
           tokenNumber: a.tokenNumber,
           tokenLabel: a.tokenLabel,
+          appointmentType: a.appointmentType,
           appointmentDate: a.appointmentDate,
           reason: a.reason,
           status: a.status,
@@ -589,19 +624,40 @@ app.post('/api/appointments', async (req, res) => {
       include: { patient: true, doctor: true },
     });
 
-    const timeStr = `${formatTime12(slot.scheduledSlotStart)} – ${formatTime12(slot.scheduledSlotEnd)}`;
-    const waMsg = `Magil Clinic: Dear ${appointment.patient.name}, your ${isWalkIn ? 'walk-in' : 'phone'} appointment with Dr. ${appointment.doctor?.name} is on ${aptDay.toLocaleDateString('en-IN')} at ${timeStr}. ${slot.tokenLabel}. Reason: ${reason || 'Consultation'}.`;
-    const waStatus = await sendWhatsAppReminder(appointment.patient.phoneNumber, waMsg);
+    res.json(appointment);
+  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to create appointment' }); }
+});
 
-    await prisma.reminder.createMany({
-      data: [
-        { patientId, type: 'APPOINTMENT', channel: 'WHATSAPP', message: waMsg, sendAt: new Date(), status: waStatus },
-        { patientId, type: 'APPOINTMENT', channel: 'SMS', message: waMsg, sendAt: slot.scheduledSlotStart, status: 'SCHEDULED' },
-      ],
+app.post('/api/appointments/:id/send-whatsapp', async (req, res) => {
+  try {
+    const { template, message: customMessage } = req.body as { template?: WhatsAppTemplate; message?: string };
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: routeId(req) },
+      include: { patient: true, doctor: true },
+    });
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+    if (!appointment.patient?.phoneNumber) return res.status(400).json({ error: 'Patient has no phone number' });
+
+    const tpl = template || 'BOOKING_CONFIRMED';
+    const msg = buildAppointmentWhatsAppMessage(appointment, tpl, customMessage);
+    const waStatus = await sendWhatsAppReminder(appointment.patient.phoneNumber, msg);
+
+    await prisma.reminder.create({
+      data: {
+        patientId: appointment.patientId,
+        type: 'APPOINTMENT',
+        channel: 'WHATSAPP',
+        message: msg,
+        sendAt: new Date(),
+        status: waStatus,
+      },
     });
 
-    res.json({ ...appointment, whatsappSent: waStatus === 'SENT' });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'Failed to create appointment' }); }
+    res.json({ sent: waStatus === 'SENT', message: msg, template: tpl });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to send WhatsApp message' });
+  }
 });
 
 app.post('/api/appointments/:id/start', async (req, res) => {
@@ -805,27 +861,30 @@ app.get('/api/bills/:id', async (req, res) => {
 
 app.post('/api/bills', async (req, res) => {
   try {
-    const { patientId, type, items, paymentMethod, gstRate } = req.body;
+    const { patientId, type, items, paymentMethod, gstEnabled, gstRate } = req.body;
     if (!patientId) return res.status(400).json({ error: 'Patient is required' });
     if (!items?.length) return res.status(400).json({ error: 'At least one line item is required' });
+
+    const settings = await ensureClinicSettings();
+    const enabled = gstEnabled !== undefined ? Boolean(gstEnabled) : settings.gstEnabled;
+    const rate = gstRate !== undefined ? parseFloat(gstRate) : settings.gstRate;
     const count = await prisma.bill.count();
     const subtotal = items.reduce((s: number, i: any) => s + i.unitPrice * i.quantity, 0);
-    const gstAmount = subtotal * (parseFloat(gstRate) || 0.18);
+    const gstAmount = enabled ? subtotal * (rate / 100) : 0;
     const total = subtotal + gstAmount;
     const bill = await prisma.bill.create({
       data: {
         billNumber: `INV-2026-${(count + 1).toString().padStart(3, '0')}`,
-        patientId, type, subtotal, gstAmount, total, paidAmount: total, paymentStatus: 'PAID', paymentMethod,
+        patientId, type, subtotal, gstEnabled: enabled, gstRate: rate, gstAmount, total, paidAmount: total, paymentStatus: 'PAID', paymentMethod,
         items: { create: items.map((i: any) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, total: i.unitPrice * i.quantity, medicineId: i.medicineId })) },
       },
       include: { patient: true, items: true },
     });
     await prisma.income.create({ data: { source: type, description: `Bill ${bill.billNumber}`, amount: total } });
-    const settings = await prisma.clinicSettings.findUnique({ where: { id: 'default' } });
     res.json({
       ...bill,
       clinic: {
-        name: settings?.clinicName || 'Magil Clinic',
+        name: settings.clinicName || 'Magil Clinic',
         address: 'Magil Clinic Management System',
         phone: '+91 9876543210',
         gstin: 'GSTIN-MAGIL-2026',

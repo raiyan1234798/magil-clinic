@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PatientCombobox } from "@/components/PatientCombobox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/api";
@@ -17,16 +18,14 @@ import { toast } from "sonner";
 
 export default function ConsultationsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ patientId: "", doctorId: "", diagnosis: "", treatment: "", notes: "", fee: "", followUpDate: "" });
 
-  const load = () => apiFetch<any[]>("/api/consultations").then(setConsultations).catch(console.error);
+  const load = () => apiFetch<any[]>("/api/consultations").then(setConsultations).catch(() => {});
   useEffect(() => {
     load();
-    apiFetch<any[]>("/api/patients").then(setPatients);
-    apiFetch<any[]>("/api/doctors").then(setDoctors);
+    apiFetch<any[]>("/api/doctors").then(setDoctors).catch(() => {});
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -48,14 +47,8 @@ export default function ConsultationsPage() {
           <DialogTrigger render={<Button className="gap-2"><Plus className="h-4 w-4" /> New Consultation</Button>} />
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Record Consultation</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Patient</Label>
-                <Select value={form.patientId} onValueChange={(v) => setForm({ ...form, patientId: v ?? "" })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select patient" /></SelectTrigger>
-                  <SelectContent>{patients.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
+            <form onSubmit={handleCreate} className="space-y-4 px-5 py-4">
+              <PatientCombobox value={form.patientId} onChange={(id) => setForm({ ...form, patientId: id })} returnUrl="/consultations" required />
               <div className="space-y-2">
                 <Label>Doctor</Label>
                 <Select value={form.doctorId} onValueChange={(v) => setForm({ ...form, doctorId: v ?? "" })}>

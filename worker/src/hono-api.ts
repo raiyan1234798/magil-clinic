@@ -6,9 +6,15 @@ import jwt from 'jsonwebtoken';
 import {
   DEFAULT_AUTOMATION,
   DEFAULT_INTEGRATIONS,
+  MONTH_NAMES,
+  calculatePayrollFromAttendance,
+  combineDateAndTime,
+  countAttendanceStatuses,
   formatConsultHoursLabel,
   getSlotTimes,
   maxTokensPerDay,
+  monthDateRange,
+  parseAttendanceDate,
   parseSettingsJson,
 } from '../../backend/src/utils';
 
@@ -82,6 +88,18 @@ export function buildHonoApi(prisma: PrismaClient, options: { jwtSecret?: string
     c.set('jwtSecret', jwtSecret);
     await next();
   });
+
+  app.get('/', (c) =>
+    c.json({
+      service: 'Magil Clinic API',
+      status: 'ok',
+      version: '1.0',
+      docs: {
+        health: '/api/health',
+        frontend: 'https://magil-clinic.pages.dev',
+      },
+    }),
+  );
 
   app.get('/api/health', (c) => c.json({ ok: true, service: 'magil-clinic-api' }));
 
@@ -597,6 +615,194 @@ export function buildHonoApi(prisma: PrismaClient, options: { jwtSecret?: string
       orderBy: { name: 'asc' },
     });
     return c.json(employees);
+  });
+
+  const attendanceInclude = { user: { select: { id: true, name: true, role: true } } };
+
+  async function upsertAttendance(data: {
+    userId: string;
+    date: Date;
+    status: string;
+    notes?: string | null;
+    checkIn?: Date | null;
+    checkOut?: Date | null;
+  }) {
+    const { userId, date, status, notes, checkIn, checkOut } = data;
+    const existing = await prisma.attendance.findUnique({ where: { userId_date: { userId, date } } });
+    if (existing) {
+      return prisma.attendance.update({
+        where: { id: existing.id },
+        data: {
+          status,
+          notes: notes ?? existing.notes,
+          checkIn: checkIn !== undefined ? checkIn : existing.checkIn,
+          checkOut: checkOut !== undefined ? checkOut : existing.checkOut,
+        },
+        include: attendanceInclude,
+      });
+    }
+    return prisma.attendance.create({
+      data: {
+        userId,
+        date,
+        status,
+        notes: notes ?? null,
+        checkIn: checkIn ?? (status === 'PRESENT' || status === 'LATE' || status === 'HALF_DAY' ? new Date() : null),
+        checkOut: checkOut ?? null,
+      },
+      include: attendanceInclude,
+    });
+  }
+
+  app.get('/api/attendance', async (c) => {
+    const date = parseAttendanceDate(c.req.query('date'));
+    const next = new Date(date);
+    next.setUTCDate(next.getUTCDate() + 1);
+
+    const [employees, records] = await Promise.all([
+      prisma.user.findMany({ select: { id: true, name: true, role: true }, orderBy: { name: 'asc' } }),
+      prisma.attendance.findMany({
+        where: { date: { gte: date, lt: next } },
+        include: attendanceInclude,
+      }),
+    ]);
+
+    const byUser = new Map(records.map((r) => [r.userId, r]));
+    const merged = employees.map((emp) => {
+      const record = byUser.get(emp.id);
+      if (record) return record;
+      return {
+        id: null,
+        userId: emp.id,
+        user: emp,
+        date,
+        checkIn: null,
+        checkOut: null,
+        status: null,
+        notes: null,
+      };
+    });
+    return c.json(merged);
+  });
+
+  app.post('/api/attendance', async (c) => {
+    const body = await c.req.json();
+    const { userId, date: dateStr, status, notes, checkInTime, checkOutTime } = body;
+    if (!userId || !status) return c.json({ error: 'userId and status are required' }, 400);
+    const date = parseAttendanceDate(dateStr);
+    const checkIn = combineDateAndTime(date, checkInTime);
+    const checkOut = combineDateAndTime(date, checkOutTime);
+    const record = await upsertAttendance({ userId, date, status, notes, checkIn, checkOut });
+    return c.json(record);
+  });
+
+  app.post('/api/attendance/mark', async (c) => {
+    const body = await c.req.json();
+    const { employeeId, userId, date: dateStr, status, notes, checkInTime, checkOutTime } = body;
+    const uid = employeeId || userId;
+    if (!uid || !status) return c.json({ error: 'employeeId and status are required' }, 400);
+    const date = parseAttendanceDate(dateStr);
+    const checkIn = combineDateAndTime(date, checkInTime);
+    const checkOut = combineDateAndTime(date, checkOutTime);
+    const record = await upsertAttendance({ userId: uid, date, status, notes, checkIn, checkOut });
+    return c.json(record);
+  });
+
+  app.patch('/api/attendance/:id', async (c) => {
+    const { status, notes, checkInTime, checkOutTime } = await c.req.json();
+    const existing = await prisma.attendance.findUnique({ where: { id: c.req.param('id') } });
+    if (!existing) return c.json({ error: 'Attendance record not found' }, 404);
+
+    const data: Record<string, unknown> = {};
+    if (status) data.status = status;
+    if (notes !== undefined) data.notes = notes;
+    if (checkInTime !== undefined) data.checkIn = combineDateAndTime(existing.date, checkInTime);
+    if (checkOutTime !== undefined) data.checkOut = combineDateAndTime(existing.date, checkOutTime);
+
+    const record = await prisma.attendance.update({
+      where: { id: c.req.param('id') },
+      data,
+      include: attendanceInclude,
+    });
+    return c.json(record);
+  });
+
+  app.post('/api/attendance/checkin', async (c) => {
+    const { userId } = await c.req.json();
+    const date = parseAttendanceDate();
+    const now = new Date();
+    const record = await upsertAttendance({ userId, date, status: 'PRESENT', checkIn: now, checkOut: null });
+    return c.json(record);
+  });
+
+  app.post('/api/attendance/:id/checkout', async (c) => {
+    const record = await prisma.attendance.update({
+      where: { id: c.req.param('id') },
+      data: { checkOut: new Date() },
+      include: attendanceInclude,
+    });
+    return c.json(record);
+  });
+
+  app.get('/api/payroll', async (c) => {
+    const month = c.req.query('month');
+    const year = c.req.query('year');
+    const where: { month?: string; year?: number } = {};
+    if (month) where.month = String(month);
+    if (year) where.year = parseInt(String(year));
+    const payrolls = await prisma.payroll.findMany({
+      where,
+      include: { user: { select: { name: true, role: true, email: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    return c.json(payrolls);
+  });
+
+  app.post('/api/payroll/process', async (c) => {
+    const body = await c.req.json();
+    const now = new Date();
+    const month = body.month || MONTH_NAMES[now.getMonth()];
+    const year = parseInt(body.year) || now.getFullYear();
+    const { start, end } = monthDateRange(month, year);
+
+    const users = await prisma.user.findMany();
+    const payrolls = await Promise.all(users.map(async (u) => {
+      const base = u.salary || 40000;
+      const records = await prisma.attendance.findMany({
+        where: { userId: u.id, date: { gte: start, lt: end } },
+      });
+      const counts = countAttendanceStatuses(records);
+      const { deductions, netSalary } = calculatePayrollFromAttendance(base, counts, 0);
+
+      const existing = await prisma.payroll.findFirst({ where: { userId: u.id, month, year } });
+      const data = {
+        userId: u.id,
+        month,
+        year,
+        baseSalary: base,
+        daysPresent: counts.daysPresent,
+        halfDays: counts.halfDays,
+        absentDays: counts.absentDays,
+        deductions,
+        bonuses: 0,
+        netSalary,
+        status: 'PROCESSED',
+        processedAt: new Date(),
+      };
+
+      if (existing) {
+        return prisma.payroll.update({
+          where: { id: existing.id },
+          data,
+          include: { user: { select: { name: true } } },
+        });
+      }
+      return prisma.payroll.create({
+        data,
+        include: { user: { select: { name: true } } },
+      });
+    }));
+    return c.json(payrolls);
   });
 
   app.get('/api/setup/status', async (c) => {

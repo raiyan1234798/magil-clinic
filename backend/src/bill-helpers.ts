@@ -5,6 +5,7 @@ export type BillItemInput = {
   quantity: number;
   unitPrice: number;
   medicineId?: string;
+  medicineStock?: number;
 };
 
 export type CreateBillInput = {
@@ -79,7 +80,13 @@ export async function createBill(
       if (!medicine) throw new Error('Medicine not found');
       if (medicine.stock < quantity) throw new Error(`Insufficient stock for ${medicine.name}`);
       description = medicine.name;
-      processedItems.push({ description, quantity, unitPrice: unitPrice || medicine.price, medicineId });
+      processedItems.push({
+        description,
+        quantity,
+        unitPrice: unitPrice || medicine.price,
+        medicineId,
+        medicineStock: medicine.stock,
+      });
     } else {
       if (!description) throw new Error('Description is required');
       processedItems.push({ description, quantity, unitPrice, medicineId });
@@ -90,64 +97,66 @@ export async function createBill(
   const count = await prisma.bill.count();
   const billNumber = `INV-2026-${(count + 1).toString().padStart(3, '0')}`;
 
-  const bill = await prisma.$transaction(async (tx) => {
-    const created = await tx.bill.create({
-      data: {
-        billNumber,
-        patientId: patientId || null,
-        walkInName: walkInName?.trim() || null,
-        walkInPhone: walkInPhone?.trim() || null,
-        isAnonymous: anonymous,
-        type,
-        subtotal: amounts.subtotal,
-        discountPercent: discount,
-        discountAmount: amounts.discountAmount,
-        gstEnabled: enabled,
-        gstRate: rate,
-        gstAmount: amounts.gstAmount,
-        total: amounts.total,
-        paidAmount: amounts.total,
-        paymentStatus: 'PAID',
-        paymentMethod,
-        items: {
-          create: processedItems.map((i) => ({
-            description: i.description,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            total: i.unitPrice * i.quantity,
-            medicineId: i.medicineId || null,
-          })),
-        },
-      },
-      include: { patient: true, items: { include: { medicine: true } } },
-    });
+  const billData = {
+    billNumber,
+    patientId: patientId || null,
+    walkInName: walkInName?.trim() || null,
+    walkInPhone: walkInPhone?.trim() || null,
+    isAnonymous: anonymous,
+    type,
+    subtotal: amounts.subtotal,
+    discountPercent: discount,
+    discountAmount: amounts.discountAmount,
+    gstEnabled: enabled,
+    gstRate: rate,
+    gstAmount: amounts.gstAmount,
+    total: amounts.total,
+    paidAmount: amounts.total,
+    paymentStatus: 'PAID',
+    paymentMethod,
+    items: {
+      create: processedItems.map((i) => ({
+        description: i.description,
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        total: i.unitPrice * i.quantity,
+        medicineId: i.medicineId || null,
+      })),
+    },
+  };
 
-    if (type === 'PHARMACY') {
-      for (const item of processedItems) {
-        if (!item.medicineId) continue;
-        const medicine = await tx.medicine.findUnique({ where: { id: item.medicineId } });
-        if (!medicine) continue;
-        await tx.medicine.update({
-          where: { id: item.medicineId },
-          data: { stock: Math.max(0, medicine.stock - item.quantity) },
-        });
-        await tx.stockMovement.create({
-          data: {
-            medicineId: item.medicineId,
-            type: 'STOCK_OUT',
-            quantity: item.quantity,
-            notes: `Bill ${billNumber}`,
-          },
-        });
-      }
-    }
-
-    await tx.income.create({
+  const txOps = [
+    prisma.bill.create({ data: billData }),
+    ...(type === 'PHARMACY'
+      ? processedItems.flatMap((item) => {
+          if (!item.medicineId || item.medicineStock === undefined) return [];
+          return [
+            prisma.medicine.update({
+              where: { id: item.medicineId },
+              data: { stock: Math.max(0, item.medicineStock - item.quantity) },
+            }),
+            prisma.stockMovement.create({
+              data: {
+                medicineId: item.medicineId,
+                type: 'STOCK_OUT',
+                quantity: item.quantity,
+                notes: `Bill ${billNumber}`,
+              },
+            }),
+          ];
+        })
+      : []),
+    prisma.income.create({
       data: { source: type, description: `Bill ${billNumber}`, amount: amounts.total },
-    });
+    }),
+  ];
 
-    return created;
+  const [created] = await prisma.$transaction(txOps);
+  const bill = await prisma.bill.findUnique({
+    where: { id: created.id },
+    include: { patient: true, items: { include: { medicine: true } } },
   });
+  if (!bill) throw new Error('Failed to create bill');
 
   return {
     ...bill,

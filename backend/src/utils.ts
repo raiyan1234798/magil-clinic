@@ -149,3 +149,60 @@ export function buildAppointmentWhatsAppMessage(
       return `Hi ${patientName}, your appointment with Dr. ${doctorName} is booked for ${date} at ${time}. Token: ${tokenLabel}`;
   }
 }
+
+/** Normalize YYYY-MM-DD (or Date) to midnight UTC for consistent storage. */
+export function parseAttendanceDate(input?: string | Date): Date {
+  if (input instanceof Date) {
+    return new Date(Date.UTC(input.getFullYear(), input.getMonth(), input.getDate()));
+  }
+  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    const [y, m, d] = input.split('-').map(Number) as [number, number, number];
+    return new Date(Date.UTC(y, m - 1, d));
+  }
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+export function combineDateAndTime(date: Date, timeStr?: string | null): Date | null {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), h, m));
+}
+
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+export function monthDateRange(month: string, year: number) {
+  const monthIndex = MONTH_NAMES.findIndex((m) => m.toLowerCase() === month.toLowerCase());
+  const idx = monthIndex >= 0 ? monthIndex : new Date().getMonth();
+  const start = new Date(Date.UTC(year, idx, 1));
+  const end = new Date(Date.UTC(year, idx + 1, 1));
+  return { start, end };
+}
+
+export type AttendanceCounts = { daysPresent: number; halfDays: number; absentDays: number };
+
+export function countAttendanceStatuses(records: { status: string }[]): AttendanceCounts {
+  return records.reduce(
+    (acc, r) => {
+      if (r.status === 'PRESENT' || r.status === 'LATE') acc.daysPresent += 1;
+      else if (r.status === 'HALF_DAY') acc.halfDays += 1;
+      else if (r.status === 'ABSENT') acc.absentDays += 1;
+      return acc;
+    },
+    { daysPresent: 0, halfDays: 0, absentDays: 0 }
+  );
+}
+
+/** Monthly pay from attendance: present = 1 day, half day = 0.5 day, absent = 0 (salary / 30 per day). */
+export function calculatePayrollFromAttendance(baseSalary: number, counts: AttendanceCounts, bonuses = 0) {
+  const dailyRate = baseSalary / 30;
+  const payableDays = counts.daysPresent + counts.halfDays * 0.5;
+  const attendancePay = payableDays * dailyRate;
+  const deductions = Math.max(0, baseSalary - attendancePay);
+  const netSalary = attendancePay + bonuses;
+  return { dailyRate, attendancePay, deductions, netSalary, payableDays };
+}

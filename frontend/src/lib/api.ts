@@ -118,6 +118,10 @@ export const STATUS_COLORS: Record<string, string> = {
   MEDIUM: "bg-amber-100 text-amber-700",
   HIGH: "bg-orange-100 text-orange-700",
   URGENT: "bg-red-100 text-red-700",
+  PRESENT: "bg-green-100 text-green-700",
+  ABSENT: "bg-red-100 text-red-700",
+  HALF_DAY: "bg-amber-100 text-amber-800",
+  LATE: "bg-orange-100 text-orange-700",
 };
 
 export type WhatsAppTemplate =

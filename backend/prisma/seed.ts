@@ -125,25 +125,30 @@ async function main() {
   });
 
   const users = await prisma.user.findMany();
+  const now = new Date();
+  const attendanceDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
   await prisma.attendance.createMany({
     data: users.map((u) => ({
       userId: u.id,
+      date: attendanceDate,
       checkIn: new Date(new Date().setHours(9, 0, 0, 0)),
       checkOut: new Date(new Date().setHours(18, 0, 0, 0)),
       status: 'PRESENT',
     })),
   });
 
-  const now = new Date();
   await prisma.payroll.createMany({
     data: users.map((u) => ({
       userId: u.id,
       month: 'June',
       year: 2026,
       baseSalary: u.salary || 40000,
-      deductions: 2000,
-      bonuses: 1000,
-      netSalary: (u.salary || 40000) - 1000,
+      daysPresent: 1,
+      halfDays: 0,
+      absentDays: 0,
+      deductions: 0,
+      bonuses: 0,
+      netSalary: (u.salary || 40000) / 30,
       status: 'PROCESSED',
       processedAt: now,
     })),

@@ -5,9 +5,10 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthGuard } from "@/components/AuthGuard";
 
 const dmSans = DM_Sans({
-  variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -21,8 +22,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-background">
+    <html lang="en" className={`${dmSans.variable} h-full`}>
+      <body className={`${dmSans.className} min-h-full flex flex-col bg-background antialiased`}>
         <AuthGuard>{children}</AuthGuard>
         <Toaster position="top-right" richColors />
       </body>

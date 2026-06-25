@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -85,19 +86,21 @@ export function WhatsAppSendMenu({
         }
       />
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Send WhatsApp</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {isPhone ? (
-          WHATSAPP_PHONE_TEMPLATES.map((t) => (
-            <DropdownMenuItem key={t.template} onClick={() => send(t.template)}>
-              {t.label}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Send WhatsApp</DropdownMenuLabel>
+          {isPhone ? (
+            WHATSAPP_PHONE_TEMPLATES.map((t) => (
+              <DropdownMenuItem key={t.template} onClick={() => send(t.template)}>
+                {t.label}
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <DropdownMenuItem onClick={() => send("BOOKING_CONFIRMED")}>
+              Booking Confirmation
             </DropdownMenuItem>
-          ))
-        ) : (
-          <DropdownMenuItem onClick={() => send("BOOKING_CONFIRMED")}>
-            Booking Confirmation
-          </DropdownMenuItem>
-        )}
+          )}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
       </DropdownMenuContent>
     </DropdownMenu>
   );

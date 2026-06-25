@@ -1,0 +1,10 @@
+CREATE UNIQUE INDEX "Patient_patientId_key" ON "Patient"("patientId");
+CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+CREATE UNIQUE INDEX "Department_name_key" ON "Department"("name");
+CREATE UNIQUE INDEX "Doctor_doctorId_key" ON "Doctor"("doctorId");
+CREATE UNIQUE INDEX "Consultation_appointmentId_key" ON "Consultation"("appointmentId");
+CREATE UNIQUE INDEX "Prescription_consultationId_key" ON "Prescription"("consultationId");
+CREATE UNIQUE INDEX "Medicine_medicineId_key" ON "Medicine"("medicineId");
+CREATE UNIQUE INDEX "Bill_billNumber_key" ON "Bill"("billNumber");
+CREATE UNIQUE INDEX "User_googleId_key" ON "User"("googleId");
+CREATE UNIQUE INDEX "Attendance_userId_date_key" ON "Attendance"("userId", "date");

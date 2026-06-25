@@ -7,4 +7,4 @@ cwd = ""
 
 [build.environment]
 NODE_VERSION = "20"
-NEXT_PUBLIC_API_URL = "https://magil-clinic-api.onrender.com"
+NEXT_PUBLIC_API_URL = "https://magil-clinic-api.tripleseven918.workers.dev"

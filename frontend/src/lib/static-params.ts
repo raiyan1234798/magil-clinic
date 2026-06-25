@@ -1,4 +1,4 @@
-const PRODUCTION_API_URL = "https://magil-clinic-api.onrender.com";
+const PRODUCTION_API_URL = "https://magil-clinic-api.tripleseven918.workers.dev";
 
 const FALLBACK_PARAMS = [{ id: "preview" }];
 

@@ -1,0 +1,13 @@
+name = "magil-clinic-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "magil-clinic-db"
+database_id = "0f029e5b-702b-46a0-a54d-fbcf63da5b52"
+
+[vars]
+CORS_ORIGIN = "https://magil-clinic.pages.dev,http://localhost:3000"
+JWT_SECRET = "magil-clinic-production-jwt-secret"

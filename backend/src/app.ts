@@ -278,6 +278,24 @@ app.get('/api/patients', async (req, res) => {
   } catch { res.status(500).json({ error: 'Failed to fetch patients' }); }
 });
 
+app.get('/api/patients/check', async (req, res) => {
+  try {
+    const phone = String(req.query.phone || '').trim();
+    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    const { normalizePhone, phonesMatch } = await import('./utils');
+    const normalized = normalizePhone(phone);
+    const digits = normalized.replace(/\D/g, '').slice(-10);
+    const candidates = await prisma.patient.findMany({
+      where: digits.length >= 10
+        ? { OR: [{ phoneNumber: normalized }, { phoneNumber: { contains: digits } }] }
+        : { phoneNumber: { contains: normalized } },
+    });
+    const existing = candidates.find((p) => phonesMatch(p.phoneNumber, phone));
+    if (existing) return res.json({ exists: true, patient: existing });
+    return res.json({ exists: false });
+  } catch { res.status(500).json({ error: 'Failed to check patient' }); }
+});
+
 app.get('/api/patients/:id', async (req, res) => {
   try {
     const patient = await prisma.patient.findUnique({
@@ -387,7 +405,19 @@ app.get('/api/patients/:id', async (req, res) => {
 
 app.post('/api/patients', async (req, res) => {
   try {
-    const { fullName, gender, age, dob, phone, email, bloodGroup, emergencyContact, address, medicalNotes } = req.body;
+    const { fullName, gender, age, dob, phone, email, bloodGroup, emergencyContact, address, medicalNotes, forceNew } = req.body;
+    const { normalizePhone, phonesMatch } = await import('./utils');
+    const normalized = normalizePhone(String(phone || ''));
+    const digits = normalized.replace(/\D/g, '').slice(-10);
+    const candidates = await prisma.patient.findMany({
+      where: digits.length >= 10
+        ? { OR: [{ phoneNumber: normalized }, { phoneNumber: { contains: digits } }] }
+        : { phoneNumber: { contains: normalized } },
+    });
+    const existing = candidates.find((p) => phonesMatch(p.phoneNumber, String(phone || '')));
+    if (existing && !forceNew) {
+      return res.status(409).json({ error: 'Patient already exists', patient: existing });
+    }
     const count = await prisma.patient.count();
     const patientId = `MAG-${(count + 1).toString().padStart(4, '0')}`;
     const patient = await prisma.patient.create({

@@ -23,11 +23,15 @@ export const API_URL = getApiUrl();
 
 export class ApiError extends Error {
   isNetworkError: boolean;
+  status?: number;
+  data?: Record<string, unknown>;
 
-  constructor(message: string, isNetworkError = false) {
+  constructor(message: string, isNetworkError = false, status?: number, data?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.isNetworkError = isNetworkError;
+    this.status = status;
+    this.data = data;
   }
 }
 
@@ -81,7 +85,7 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new ApiError(err.error || `Request failed (${res.status})`);
+    throw new ApiError(err.error || `Request failed (${res.status})`, false, res.status, err);
   }
   return res.json();
 }

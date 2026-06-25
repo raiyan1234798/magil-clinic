@@ -214,6 +214,21 @@ export function countAttendanceStatuses(records: { status: string }[]): Attendan
   );
 }
 
+/** Normalize phone for duplicate comparison (strip spaces, dashes, parens). */
+export function normalizePhone(phone: string): string {
+  return phone.replace(/[\s\-()]/g, '');
+}
+
+/** Match phones by normalized form or last 10 digits (Indian numbers). */
+export function phonesMatch(a: string, b: string): boolean {
+  const na = normalizePhone(a);
+  const nb = normalizePhone(b);
+  if (na === nb) return true;
+  const da = na.replace(/\D/g, '').slice(-10);
+  const db = nb.replace(/\D/g, '').slice(-10);
+  return da.length >= 10 && db.length >= 10 && da === db;
+}
+
 /** Monthly pay from attendance: present = 1 day, half day = 0.5 day, absent = 0 (salary / 30 per day). */
 export function calculatePayrollFromAttendance(baseSalary: number, counts: AttendanceCounts, bonuses = 0) {
   const dailyRate = baseSalary / 30;

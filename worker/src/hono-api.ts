@@ -16,6 +16,8 @@ import {
   monthDateRange,
   parseAttendanceDate,
   parseSettingsJson,
+  normalizePhone,
+  phonesMatch,
   sendWhatsAppReminder,
   buildAppointmentWhatsAppMessage,
   buildWhatsAppUrl,
@@ -197,6 +199,21 @@ export function buildHonoApi(
     return c.json(patients);
   });
 
+  app.get('/api/patients/check', async (c) => {
+    const phone = (c.req.query('phone') || '').trim();
+    if (!phone) return c.json({ error: 'Phone number required' }, 400);
+    const normalized = normalizePhone(phone);
+    const digits = normalized.replace(/\D/g, '').slice(-10);
+    const candidates = await prisma.patient.findMany({
+      where: digits.length >= 10
+        ? { OR: [{ phoneNumber: normalized }, { phoneNumber: { contains: digits } }] }
+        : { phoneNumber: { contains: normalized } },
+    });
+    const existing = candidates.find((p) => phonesMatch(p.phoneNumber, phone));
+    if (existing) return c.json({ exists: true, patient: existing });
+    return c.json({ exists: false });
+  });
+
   app.get('/api/patients/:id', async (c) => {
     const id = c.req.param('id');
     const patient = await prisma.patient.findUnique({
@@ -289,7 +306,18 @@ export function buildHonoApi(
 
   app.post('/api/patients', async (c) => {
     const body = await c.req.json();
-    const { fullName, gender, age, dob, phone, email, bloodGroup, emergencyContact, address, medicalNotes } = body;
+    const { fullName, gender, age, dob, phone, email, bloodGroup, emergencyContact, address, medicalNotes, forceNew } = body;
+    const normalized = normalizePhone(String(phone || ''));
+    const digits = normalized.replace(/\D/g, '').slice(-10);
+    const candidates = await prisma.patient.findMany({
+      where: digits.length >= 10
+        ? { OR: [{ phoneNumber: normalized }, { phoneNumber: { contains: digits } }] }
+        : { phoneNumber: { contains: normalized } },
+    });
+    const existing = candidates.find((p) => phonesMatch(p.phoneNumber, String(phone || '')));
+    if (existing && !forceNew) {
+      return c.json({ error: 'Patient already exists', patient: existing }, 409);
+    }
     const count = await prisma.patient.count();
     const patientId = `MAG-${(count + 1).toString().padStart(4, '0')}`;
     const patient = await prisma.patient.create({

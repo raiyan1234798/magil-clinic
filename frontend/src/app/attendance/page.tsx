@@ -16,11 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { CalendarCheck, ClipboardCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, formatTime, showApiError } from "@/lib/api";
 import { canViewRoles, getUser } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 type AttendanceRow = {
@@ -66,6 +67,7 @@ export default function AttendancePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeRow, setActiveRow] = useState<AttendanceRow | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [form, setForm] = useState({
     status: "PRESENT" as string,
     notes: "",
@@ -83,27 +85,33 @@ export default function AttendancePage() {
     load();
   }, [load]);
 
-  const openMarkDialog = (row?: AttendanceRow) => {
-    const target = row ?? rows[0] ?? null;
-    setActiveRow(target);
+  const applyRowToForm = (row: AttendanceRow) => {
+    setActiveRow(row);
+    setSelectedEmployeeId(row.userId);
     setForm({
-      status: target?.status || "PRESENT",
-      notes: target?.notes || "",
-      checkInTime: toTimeInput(target?.checkIn ?? null),
-      checkOutTime: toTimeInput(target?.checkOut ?? null),
+      status: row.status || "PRESENT",
+      notes: row.notes || "",
+      checkInTime: toTimeInput(row.checkIn ?? null),
+      checkOutTime: toTimeInput(row.checkOut ?? null),
     });
+  };
+
+  const openMarkDialog = (row?: AttendanceRow) => {
+    const target = row ?? rows.find((r) => r.userId === selectedEmployeeId) ?? rows[0] ?? null;
+    if (target) applyRowToForm(target);
     setDialogOpen(true);
   };
 
   const saveAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeRow) return;
+    const row = activeRow ?? rows.find((r) => r.userId === selectedEmployeeId);
+    if (!row) return;
     setSaving(true);
     try {
       await apiFetch("/api/attendance/mark", {
         method: "POST",
         body: JSON.stringify({
-          employeeId: activeRow.userId,
+          employeeId: row.userId,
           date: selectedDate,
           status: form.status,
           notes: form.notes || undefined,
@@ -111,7 +119,7 @@ export default function AttendancePage() {
           checkOutTime: form.status !== "ABSENT" ? form.checkOutTime || undefined : undefined,
         }),
       });
-      toast.success(`Attendance saved for ${activeRow.user.name}`);
+      toast.success(`Attendance saved for ${row.user.name}`);
       setDialogOpen(false);
       load();
     } catch (err) {
@@ -149,6 +157,11 @@ export default function AttendancePage() {
     if (!status) return "Not Marked";
     return status.replace(/_/g, " ");
   };
+
+  const selectedEmployeeName =
+    rows.find((r) => r.userId === selectedEmployeeId)?.user.name ?? "Select employee";
+  const selectedStatusLabel =
+    STATUS_OPTIONS.find((opt) => opt.value === form.status)?.label ?? "Select status";
 
   return (
     <PageLayout
@@ -285,14 +298,22 @@ export default function AttendancePage() {
             <div className="space-y-2">
               <Label>Employee *</Label>
               <Select
-                value={activeRow?.userId || ""}
+                value={selectedEmployeeId}
                 onValueChange={(userId) => {
                   const row = rows.find((r) => r.userId === userId);
-                  if (row) openMarkDialog(row);
+                  if (row) applyRowToForm(row);
                 }}
+                items={rows.map((row) => ({ value: row.userId, label: row.user.name }))}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select employee" />
+                  <span
+                    className={cn(
+                      "flex-1 truncate text-left",
+                      !selectedEmployeeId && "text-muted-foreground"
+                    )}
+                  >
+                    {selectedEmployeeName}
+                  </span>
                 </SelectTrigger>
                 <SelectContent>
                   {rows.map((row) => (
@@ -309,9 +330,13 @@ export default function AttendancePage() {
             </div>
             <div className="space-y-2">
               <Label>Status *</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v ?? "PRESENT" })}>
+              <Select
+                value={form.status}
+                onValueChange={(v) => setForm({ ...form, status: v ?? "PRESENT" })}
+                items={STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <span className="flex-1 truncate text-left">{selectedStatusLabel}</span>
                 </SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map((opt) => (

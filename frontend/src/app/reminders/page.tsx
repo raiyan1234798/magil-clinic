@@ -27,6 +27,7 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
 export default function RemindersPage() {
   const [reminders, setReminders] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any>(null);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ patientId: "", type: "APPOINTMENT", channel: "SMS", message: "", sendAt: "" });
@@ -36,6 +37,9 @@ export default function RemindersPage() {
     Promise.all([
       apiFetch<any[]>("/api/reminders").then(setReminders),
       apiFetch("/api/notifications").then(setNotifications),
+      apiFetch<{ integrations?: { whatsapp?: boolean } }>("/api/settings")
+        .then((s) => setWhatsappEnabled(s.integrations?.whatsapp !== false))
+        .catch(() => {}),
     ])
       .catch((err) => showApiError(err, "Failed to load reminders"))
       .finally(() => setLoading(false));
@@ -115,7 +119,12 @@ export default function RemindersPage() {
                       <p className="text-slate-600">
                         {a.patient.name} ({a.patient.patientId}) — {formatDate(a.appointmentDate)} — {a.tokenLabel || `Token ${a.tokenNumber}`}
                       </p>
-                      <WhatsAppSendMenu appointmentId={a.id} appointmentType={a.appointmentType} isWalkIn={a.isWalkIn} />
+                      <WhatsAppSendMenu
+                        appointmentId={a.id}
+                        appointmentType={a.appointmentType}
+                        isWalkIn={a.isWalkIn}
+                        whatsappEnabled={whatsappEnabled}
+                      />
                     </div>
                   ))}
                 </div>

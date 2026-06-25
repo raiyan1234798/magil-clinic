@@ -41,11 +41,15 @@ interface DashboardData {
 export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [notifications, setNotifications] = useState<any>(null);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true);
   const loading = !data;
 
   useEffect(() => {
     apiFetch<DashboardData>("/api/dashboard").then(setData).catch(console.error);
     apiFetch("/api/notifications").then(setNotifications).catch(console.error);
+    apiFetch<{ integrations?: { whatsapp?: boolean } }>("/api/settings")
+      .then((s) => setWhatsappEnabled(s.integrations?.whatsapp !== false))
+      .catch(() => {});
   }, []);
 
   const hour = new Date().getHours();
@@ -112,6 +116,7 @@ export default function Dashboard() {
                         appointmentId={apt.id}
                         appointmentType={apt.appointmentType}
                         isWalkIn={apt.isWalkIn}
+                        whatsappEnabled={whatsappEnabled}
                       />
                     )}
                   </div>
@@ -236,7 +241,12 @@ export default function Dashboard() {
                         </p>
                         {(apt.appointmentType === "PHONE" && !apt.isWalkIn) && (
                           <div className="mt-2">
-                            <WhatsAppSendMenu appointmentId={apt.id} appointmentType={apt.appointmentType} isWalkIn={apt.isWalkIn} />
+                            <WhatsAppSendMenu
+                              appointmentId={apt.id}
+                              appointmentType={apt.appointmentType}
+                              isWalkIn={apt.isWalkIn}
+                              whatsappEnabled={whatsappEnabled}
+                            />
                           </div>
                         )}
                       </div>

@@ -6,6 +6,7 @@ export interface Env {
   DB: D1Database;
   CORS_ORIGIN?: string;
   JWT_SECRET?: string;
+  WHATSAPP_API_KEY?: string;
 }
 
 let cachedApp: ReturnType<typeof buildHonoApi> | null = null;
@@ -17,6 +18,7 @@ function getApp(env: Env) {
     cachedApp = buildHonoApi(prisma, {
       jwtSecret: env.JWT_SECRET,
       corsOrigin: env.CORS_ORIGIN,
+      whatsappApiKey: env.WHATSAPP_API_KEY,
     });
   }
   return cachedApp;

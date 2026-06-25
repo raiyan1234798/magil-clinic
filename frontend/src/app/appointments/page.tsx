@@ -217,6 +217,7 @@ export default function AppointmentsPage() {
                             appointmentId={a.id}
                             appointmentType={a.appointmentType}
                             isWalkIn={a.isWalkIn}
+                            whatsappEnabled={settings?.integrations?.whatsapp !== false}
                           />
                           {a.status === "SCHEDULED" && (
                             <Button size="sm" variant="outline" onClick={() => startConsult(a.id)}>Start</Button>

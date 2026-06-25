@@ -18,6 +18,7 @@ type WhatsAppSendMenuProps = {
   appointmentId: string;
   appointmentType?: string;
   isWalkIn?: boolean;
+  whatsappEnabled?: boolean;
   size?: "sm" | "default";
   variant?: "outline" | "secondary" | "default";
 };
@@ -26,6 +27,7 @@ export function WhatsAppSendMenu({
   appointmentId,
   appointmentType,
   isWalkIn,
+  whatsappEnabled = true,
   size = "sm",
   variant = "outline",
 }: WhatsAppSendMenuProps) {
@@ -33,18 +35,43 @@ export function WhatsAppSendMenu({
   const isPhone = appointmentType === "PHONE" && !isWalkIn;
 
   const send = async (template: WhatsAppTemplate) => {
+    if (!whatsappEnabled) {
+      toast.error("Enable WhatsApp in Settings");
+      return;
+    }
+
     setSending(true);
     try {
       const result = await sendAppointmentWhatsApp(appointmentId, template);
-      toast.success(result.sent ? "WhatsApp message sent" : "WhatsApp message queued", {
-        description: result.message.slice(0, 80) + (result.message.length > 80 ? "…" : ""),
-      });
+      const preview =
+        result.message.slice(0, 80) + (result.message.length > 80 ? "…" : "");
+      if (result.simulated) {
+        toast.success("WhatsApp message simulated (demo mode)", { description: preview });
+      } else {
+        toast.success(result.sent ? "WhatsApp message sent" : "WhatsApp message queued", {
+          description: preview,
+        });
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to send WhatsApp");
     } finally {
       setSending(false);
     }
   };
+
+  if (!whatsappEnabled) {
+    return (
+      <Button
+        variant={variant}
+        size={size}
+        className="gap-1 opacity-60"
+        onClick={() => toast.error("Enable WhatsApp in Settings")}
+      >
+        <MessageSquare className="h-3.5 w-3.5" />
+        WhatsApp
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu>

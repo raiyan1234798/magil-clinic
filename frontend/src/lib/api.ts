@@ -138,8 +138,11 @@ export const WHATSAPP_PHONE_TEMPLATES: { template: WhatsAppTemplate; label: stri
 ];
 
 export async function sendAppointmentWhatsApp(appointmentId: string, template: WhatsAppTemplate, message?: string) {
-  return apiFetch<{ sent: boolean; message: string }>(`/api/appointments/${appointmentId}/send-whatsapp`, {
-    method: "POST",
-    body: JSON.stringify({ template, message }),
-  });
+  return apiFetch<{ success: boolean; sent: boolean; message: string; simulated?: boolean }>(
+    `/api/appointments/${appointmentId}/send-whatsapp`,
+    {
+      method: "POST",
+      body: JSON.stringify({ template, message }),
+    }
+  );
 }

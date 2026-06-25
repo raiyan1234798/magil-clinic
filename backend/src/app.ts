@@ -645,16 +645,28 @@ app.post('/api/appointments', async (req, res) => {
 app.post('/api/appointments/:id/send-whatsapp', async (req, res) => {
   try {
     const { template, message: customMessage } = req.body as { template?: WhatsAppTemplate; message?: string };
+    const settings = await prisma.clinicSettings.findUnique({ where: { id: 'default' } });
+    const integrations = parseSettingsJson(settings?.integrations, DEFAULT_INTEGRATIONS);
+    if (!integrations.whatsapp) {
+      return res.status(400).json({ error: 'Enable WhatsApp in Settings to send messages' });
+    }
+
     const appointment = await prisma.appointment.findUnique({
       where: { id: routeId(req) },
       include: { patient: true, doctor: true },
     });
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
-    if (!appointment.patient?.phoneNumber) return res.status(400).json({ error: 'Patient has no phone number' });
+    if (!appointment.patient?.phoneNumber?.trim()) {
+      return res.status(400).json({ error: 'Patient has no phone number' });
+    }
 
     const tpl = template || 'BOOKING_CONFIRMED';
     const msg = buildAppointmentWhatsAppMessage(appointment, tpl, customMessage);
-    const waStatus = await sendWhatsAppReminder(appointment.patient.phoneNumber, msg);
+    const { status: waStatus, simulated } = await sendWhatsAppReminder(
+      appointment.patient.phoneNumber,
+      msg,
+      process.env.WHATSAPP_API_KEY
+    );
 
     await prisma.reminder.create({
       data: {
@@ -667,7 +679,7 @@ app.post('/api/appointments/:id/send-whatsapp', async (req, res) => {
       },
     });
 
-    res.json({ sent: waStatus === 'SENT', message: msg, template: tpl });
+    res.json({ success: true, sent: waStatus === 'SENT', message: msg, template: tpl, simulated });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Failed to send WhatsApp message' });

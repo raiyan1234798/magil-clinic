@@ -88,15 +88,18 @@ export function canAccess(role: string, path: string): boolean {
   return perms.some((p) => path === p || (p !== '/' && path.startsWith(p)));
 }
 
-export async function sendWhatsAppReminder(phone: string, message: string): Promise<'SENT' | 'SCHEDULED'> {
-  const apiKey = process.env.WHATSAPP_API_KEY;
+export async function sendWhatsAppReminder(
+  phone: string,
+  message: string,
+  apiKey?: string
+): Promise<{ status: 'SENT' | 'SCHEDULED'; simulated: boolean }> {
   if (apiKey) {
     // Production: integrate Twilio/Meta WhatsApp Business API here
     console.log(`[WhatsApp] To ${phone}: ${message}`);
-    return 'SENT';
+    return { status: 'SENT', simulated: false };
   }
   console.log(`[WhatsApp SIMULATION] To ${phone}: ${message}`);
-  return 'SENT';
+  return { status: 'SENT', simulated: true };
 }
 
 export type WhatsAppTemplate =
